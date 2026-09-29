@@ -45,9 +45,9 @@ class AudioNote(private val context: Context) {
         player?.release()
         player = MediaPlayer().apply {
             setDataSource(file)
+            setOnPreparedListener { it.start() }
             setOnCompletionListener { it.release(); if (player === it) player = null }
-            prepare()
-            start()
+            prepareAsync()
         }
     }
 

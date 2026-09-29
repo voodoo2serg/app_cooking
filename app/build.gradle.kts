@@ -12,8 +12,8 @@ android {
         applicationId = "ru.vkusdetstva"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
     }
     buildTypes { release { isMinifyEnabled = false } }
     compileOptions {
@@ -39,4 +39,5 @@ dependencies {
     implementation("androidx.room:room-ktx:2.7.1")
     kapt("androidx.room:room-compiler:2.7.1")
     implementation("io.coil-kt:coil-compose:2.7.0")
+    testImplementation("junit:junit:4.13.2")
 }

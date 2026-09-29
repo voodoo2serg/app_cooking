@@ -33,6 +33,16 @@ data class Recipe(
     val createdAt: Long = System.currentTimeMillis()
 )
 
+/** Единственная строка (id = 1) — владелец книги. Рецепты без personId выходят от его лица. */
+@Entity(tableName = "author")
+data class AuthorProfile(
+    @PrimaryKey val id: Long = 1L,
+    val name: String = "",
+    val tagline: String = "",
+    val bio: String = "",
+    val photos: List<String> = emptyList()
+)
+
 @Entity(tableName = "versions")
 data class RecipeVersion(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

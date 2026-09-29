@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
@@ -62,11 +63,12 @@ private fun FamilyApp(vm: FamilyViewModel, darkTheme: Boolean, setDarkTheme: (Bo
     val recipes by vm.recipes.collectAsStateWithLifecycle()
     val versions by vm.versions.collectAsStateWithLifecycle()
     val moments by vm.moments.collectAsStateWithLifecycle()
-    var route by remember { mutableStateOf("home") }
-    var selectedRecipe by remember { mutableLongStateOf(0L) }
-    var selectedPerson by remember { mutableLongStateOf(0L) }
-    var selectedMoment by remember { mutableLongStateOf(0L) }
-    var pantryIngredient by remember { mutableStateOf<String?>(null) }
+    val author by vm.author.collectAsStateWithLifecycle()
+    var route by rememberSaveable { mutableStateOf("home") }
+    var selectedRecipe by rememberSaveable { mutableLongStateOf(0L) }
+    var selectedPerson by rememberSaveable { mutableLongStateOf(0L) }
+    var selectedMoment by rememberSaveable { mutableLongStateOf(0L) }
+    var pantryIngredient by rememberSaveable { mutableStateOf<String?>(null) }
     val selected = recipes.find { it.id == selectedRecipe }
     val person = people.find { it.id == selectedPerson }
     val moment = moments.find { it.id == selectedMoment }
@@ -76,6 +78,8 @@ private fun FamilyApp(vm: FamilyViewModel, darkTheme: Boolean, setDarkTheme: (Bo
         "recipe-edit", "version" -> if (selectedRecipe != 0L) "recipe" else "home"
         "person-edit" -> if (selectedPerson != 0L) "person" else "home"
         "moment-edit" -> "moments"
+        "author-edit" -> if (author != null) "author" else "settings"
+        "author" -> "settings"
         else -> "home"
     } }
 
@@ -89,13 +93,13 @@ private fun FamilyApp(vm: FamilyViewModel, darkTheme: Boolean, setDarkTheme: (Bo
     androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().padding(innerPadding)) {
     when (route) {
         "home" -> HomeScreen(recipes, people, { selectedRecipe = 0L; go("recipe-edit") }, go,
-            { selectedRecipe = it; go("recipe") })
+            { selectedRecipe = it; go("recipe") }, author?.name.orEmpty())
         "recipes" -> RecipeListScreen(recipes, people, back, { selectedRecipe = it; go("recipe") },
-            { selectedRecipe = 0L; go("recipe-edit") })
+            { selectedRecipe = 0L; go("recipe-edit") }, author?.name.orEmpty())
         "search" -> SearchScreen(recipes, people, back,
             { selectedRecipe = it; go("recipe") }, { selectedPerson = it; go("person") },
-            { pantryIngredient = it; go("pantry") })
-        "recipe" -> if (selected != null) RecipeScreen(selected, people.find { it.id == selected.personId },
+            { pantryIngredient = it; go("pantry") }, author?.name.orEmpty())
+        "recipe" -> if (selected != null) RecipeScreen(selected, people.find { it.id == selected.personId }, author,
             versions.filter { it.recipeId == selected.id }, back,
             { go("recipe-edit") }, { go("version") }, { vm.save(selected.copy(timesCooked = selected.timesCooked + 1)) },
             { updated -> vm.save(updated) }, { vm.delete(selected, back) }) else HomeScreen(recipes, people,
@@ -113,8 +117,18 @@ private fun FamilyApp(vm: FamilyViewModel, darkTheme: Boolean, setDarkTheme: (Bo
         "moment-edit" -> MomentEditScreen(moment, back, { vm.save(it) { route = "moments" } },
             { if (moment != null) vm.delete(moment) { route = "moments" } })
         "pantry" -> PantryScreen(recipes, back, { selectedRecipe = it; go("recipe") }, pantryIngredient)
-        "book" -> BookScreen(recipes, people, versions, moments, back)
-        "settings" -> SettingsScreen(back, people, recipes, versions, moments, darkTheme, setDarkTheme)
+        "book" -> BookWizard(people, recipes, versions, moments, author?.name.orEmpty(), back)
+        "author" -> {
+            val profile = author
+            if (profile != null) AuthorScreen(profile, recipes.filter { it.personId == null },
+                { go("settings") }, { go("author-edit") })
+            else AuthorEditScreen(null, { go("settings") }) { vm.saveAuthor(it) { route = "author" } }
+        }
+        "author-edit" -> AuthorEditScreen(author, { route = if (author != null) "author" else "settings" }) {
+            vm.saveAuthor(it) { route = "author" }
+        }
+        "settings" -> SettingsScreen(back, people, recipes, versions, moments, author, darkTheme, setDarkTheme,
+            { go("author") })
     }
     }
     }

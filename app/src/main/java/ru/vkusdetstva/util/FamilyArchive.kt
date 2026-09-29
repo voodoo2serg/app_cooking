@@ -14,7 +14,7 @@ import java.util.zip.ZipOutputStream
 
 object FamilyArchive {
     fun export(context: Context, uri: Uri, people: List<Person>, recipes: List<Recipe>,
-               versions: List<RecipeVersion>, moments: List<FamilyMoment>) {
+               versions: List<RecipeVersion>, moments: List<FamilyMoment>, author: AuthorProfile? = null) {
         val files = linkedMapOf<String, File>()
         fun media(path: String?): String {
             val file = path?.let(::File) ?: return ""
@@ -44,6 +44,9 @@ object FamilyArchive {
         root.put("moments", JSONArray().apply { moments.forEach { m -> put(JSONObject()
             .put("id", m.id).put("title", m.title).put("story", m.story).put("people", m.people)
             .put("photos", photos(m.photos)).put("createdAt", m.createdAt)) } })
+        author?.let { a -> root.put("author", JSONObject()
+            .put("name", a.name).put("tagline", a.tagline).put("bio", a.bio)
+            .put("photos", photos(a.photos))) }
         context.contentResolver.openOutputStream(uri)?.use { stream ->
             ZipOutputStream(stream).use { zip ->
                 zip.putNextEntry(ZipEntry("manifest.json")); zip.write(root.toString().toByteArray()); zip.closeEntry()
@@ -90,6 +93,8 @@ object FamilyArchive {
             val moments = data.getJSONArray("moments").objects().map { m -> FamilyMoment(
                 m.getLong("id"), m.getString("title"), m.getString("story"), m.getString("people"),
                 getPhotos(m), m.getLong("createdAt")) }
+            val author = data.optJSONObject("author")?.let { a -> AuthorProfile(1L,
+                a.optString("name"), a.optString("tagline"), a.optString("bio"), getPhotos(a)) }
             val dest = File(context.filesDir, "restored_${UUID.randomUUID()}").apply { mkdirs() }
             val moved = media.mapValues { (_, file) -> File(dest, file.name).also { file.copyTo(it) } }
             fun remap(paths: List<String>) = paths.map { old -> moved.values.find { it.name == File(old).name }?.absolutePath ?: old }
@@ -101,6 +106,7 @@ object FamilyArchive {
                 recipes.forEach { dao.addRecipe(it.copy(photos = remap(it.photos), audioPath = it.audioPath?.let { path -> remap(listOf(path)).first() })) }
                 versions.forEach { dao.addVersion(it.copy(photos = remap(it.photos))) }
                 moments.forEach { dao.addMoment(it.copy(photos = remap(it.photos))) }
+                author?.let { dao.upsertAuthor(it.copy(photos = remap(it.photos))) }
             }
             context.getSharedPreferences("settings", 0).edit()
                 .putString("family_name", data.optString("familyName", "Моя семья"))

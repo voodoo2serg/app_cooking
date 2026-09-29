@@ -23,7 +23,7 @@ import org.json.JSONArray
 
 @Composable
 fun HomeScreen(recipes: List<Recipe>, people: List<Person>, add: () -> Unit,
-               go: (String) -> Unit, openRecipe: (Long) -> Unit) {
+               go: (String) -> Unit, openRecipe: (Long) -> Unit, authorName: String = "") {
     Page("У каждого блюда — своя история") {
         Text("Сохраняйте рецепты, фотографии и голоса тех, кто собирал семью за одним столом.",
             style = MaterialTheme.typography.bodyLarge,
@@ -50,7 +50,8 @@ fun HomeScreen(recipes: List<Recipe>, people: List<Person>, add: () -> Unit,
         } else {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(recipes.take(8)) { recipe ->
-                    RecipePreview(recipe, people.find { it.id == recipe.personId }?.name.orEmpty()) { openRecipe(recipe.id) }
+                    RecipePreview(recipe, people.find { it.id == recipe.personId }?.name
+                        ?: if (authorName.isNotBlank()) "От лица автора · $authorName" else "") { openRecipe(recipe.id) }
                 }
             }
             TextButton(onClick = { go("recipes") }) { Text("Все рецепты →") }
@@ -103,15 +104,17 @@ private fun RecipePreview(recipe: Recipe, author: String, onClick: () -> Unit) {
 
 @Composable
 fun RecipeListScreen(recipes: List<Recipe>, people: List<Person>, back: () -> Unit,
-                     open: (Long) -> Unit, add: () -> Unit) {
+                     open: (Long) -> Unit, add: () -> Unit, authorName: String = "") {
     var query by remember { mutableStateOf("") }
     Page("Рецепты", back) {
         TextBox(query, { query = it }, "Название или продукт")
         recipes.filter { recipe -> query.isBlank() ||
             recipe.title.contains(query, true) || recipe.ingredients.contains(query, true) ||
-            people.find { it.id == recipe.personId }?.name?.contains(query, true) == true
+            people.find { it.id == recipe.personId }?.name?.contains(query, true) == true ||
+            (recipe.personId == null && authorName.contains(query, true) && query.isNotBlank())
         }.forEach { recipe ->
-            ListTile(recipe.title, people.find { it.id == recipe.personId }?.name.orEmpty()) { open(recipe.id) }
+            ListTile(recipe.title, people.find { it.id == recipe.personId }?.name
+                ?: if (authorName.isNotBlank()) "От лица автора · $authorName" else "Семейный рецепт") { open(recipe.id) }
         }
         if (recipes.isEmpty()) Text("Начните с одного семейного рецепта — добавьте его вручную и прикрепите фото.")
         Action("+ Добавить рецепт", add)
@@ -121,7 +124,7 @@ fun RecipeListScreen(recipes: List<Recipe>, people: List<Person>, back: () -> Un
 @Composable
 fun SearchScreen(recipes: List<Recipe>, people: List<Person>, back: () -> Unit,
                  openRecipe: (Long) -> Unit, openPerson: (Long) -> Unit,
-                 selectIngredient: (String) -> Unit) {
+                 selectIngredient: (String) -> Unit, authorName: String = "") {
     var query by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("Все") }
     val normalized = IngredientCatalog.normalize(query)
@@ -141,7 +144,7 @@ fun SearchScreen(recipes: List<Recipe>, people: List<Person>, back: () -> Unit,
             val foundPeople = people.filter { IngredientCatalog.normalize(it.name + " " + it.relation).contains(normalized) }
             val foundRecipes = recipes.filter { recipe ->
                 IngredientCatalog.normalize(recipe.title + " " + recipe.ingredients + " " +
-                    people.find { it.id == recipe.personId }?.name.orEmpty()).contains(normalized) ||
+                    (people.find { it.id == recipe.personId }?.name ?: authorName)).contains(normalized) ||
                     IngredientCatalog.find(query)?.let { selected ->
                         recipe.ingredients.lines().any { IngredientCatalog.find(it)?.name == selected.name }
                     } == true
