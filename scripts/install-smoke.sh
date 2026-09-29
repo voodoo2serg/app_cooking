@@ -37,15 +37,40 @@ sleep 2
 assert_screen 'Профиль автора'
 adb shell screencap -p /sdcard/vkus-settings.png
 adb pull /sdcard/vkus-settings.png app/build/outputs/vkus-settings.png
-adb shell input swipe 540 1700 540 700 400
-sleep 1
-assert_screen 'Тёмная тема'
-# The switch sits below the fold: locate the only checkable node on the
-# settings screen and tap its center instead of hard-coded coordinates.
-rect=$(grep -o 'checkable="true"[^>]*bounds="\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]"' \
-    app/build/outputs/vkus-window.xml | head -1 | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]')
+# The settings page keeps growing (import section), so a single long swipe can
+# fling past the theme switch. Scroll in small controlled steps until the only
+# checkable node on the screen - the switch - is fully visible, then tap it.
+rect=""
+for _ in 1 2 3 4 5 6 7 8; do
+    adb shell uiautomator dump /sdcard/vkus-window.xml >/dev/null
+    adb exec-out cat /sdcard/vkus-window.xml > app/build/outputs/vkus-window.xml
+    rect=$(grep -o 'checkable="true"[^>]*bounds="\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]"' \
+        app/build/outputs/vkus-window.xml | head -1 | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]')
+    if [ -n "$rect" ]; then
+        y1=$(echo "$rect" | cut -d, -f2)
+        y2=$(echo "$rect" | cut -d, -f4 | tr -d '][')
+        if [ "$y1" -ge 140 ] && [ "$y2" -le 2140 ]; then break; fi
+        rect=""
+        if [ "$y2" -le 140 ]; then
+            adb shell input swipe 540 1000 540 1600 300 # scrolled past it: back up
+        else
+            adb shell input swipe 540 1600 540 1000 300 # below the fold: scroll on
+        fi
+    else
+        adb shell input swipe 540 1600 540 1000 300 # switch not composed yet
+    fi
+    sleep 1
+done
 if [ -z "$rect" ]; then
     echo 'Theme switch not found on the settings screen.' >&2
+    exit 1
+fi
+if grep -Eiq 'Quickstep.*(responding|отвечает)|System UI.*(responding|отвечает)' app/build/outputs/vkus-window.xml; then
+    echo 'The emulator system is showing an ANR dialog; UI screenshots would be invalid.' >&2
+    exit 1
+fi
+if ! grep -Fq 'Тёмная тема' app/build/outputs/vkus-window.xml; then
+    echo 'Expected screen text missing: Тёмная тема' >&2
     exit 1
 fi
 x1=$(echo "$rect" | cut -d, -f1 | tr -d '[')
