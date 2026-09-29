@@ -42,8 +42,8 @@ jobs:
           script: |
             set -e
             APK=app/build/outputs/apk/debug/app-debug.apk
-            apksigner verify --verbose --print-certs "$APK"
-            aapt dump badging "$APK" | head -n 8
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
+            "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK"
             adb install -r "$APK"
             adb shell am start -W -n ru.vkusdetstva/.MainActivity
             sleep 5
