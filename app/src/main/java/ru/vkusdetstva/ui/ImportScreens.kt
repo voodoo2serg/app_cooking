@@ -3,6 +3,7 @@ package ru.vkusdetstva.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -29,7 +30,8 @@ fun ImportScreen(back: () -> Unit, openSettings: () -> Unit,
     val scope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("settings", 0) }
     val clipboard = LocalClipboardManager.current
-    var photos by remember { mutableStateOf(listOf<String>()) }
+    // Выбранные страницы переживают пересоздание Activity (поворот, звонок).
+    var photos by rememberSaveable { mutableStateOf(listOf<String>()) }
     var loading by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf("") }
     val hasKey = remember { !prefs.getString("import_api_key", "").isNullOrBlank() }

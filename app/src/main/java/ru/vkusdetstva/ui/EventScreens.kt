@@ -4,9 +4,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import ru.vkusdetstva.data.Drafts
 import ru.vkusdetstva.data.FamilyEvent
 import ru.vkusdetstva.data.Recipe
+import ru.vkusdetstva.data.eventFromJson
+import ru.vkusdetstva.data.toJson
 
 @Composable
 fun EventsScreen(events: List<FamilyEvent>, recipes: List<Recipe>, back: () -> Unit,
@@ -34,11 +38,27 @@ fun EventsScreen(events: List<FamilyEvent>, recipes: List<Recipe>, back: () -> U
 @Composable
 fun EventEditScreen(existing: FamilyEvent?, recipes: List<Recipe>, back: () -> Unit,
                     save: (FamilyEvent) -> Unit, delete: () -> Unit) {
-    var title by remember(existing?.id) { mutableStateOf(existing?.title.orEmpty()) }
-    var story by remember(existing?.id) { mutableStateOf(existing?.story.orEmpty()) }
-    var photos by remember(existing?.id) { mutableStateOf(existing?.photos.orEmpty()) }
-    val selected = remember(existing?.id) { mutableStateListOf<Long>().apply { addAll(existing?.recipeIds.orEmpty()) } }
+    val context = LocalContext.current
+    val draftKey = if (existing == null) "event-new" else "event-edit-${existing.id}"
+    val draft = remember(draftKey) { Drafts.load(context, draftKey) }
+    val base = remember(draftKey) { draft?.let(::eventFromJson) ?: existing ?: FamilyEvent(title = "") }
+    var title by remember(draftKey) { mutableStateOf(base.title) }
+    var story by remember(draftKey) { mutableStateOf(base.story) }
+    var photos by remember(draftKey) { mutableStateOf(base.photos) }
+    val selected = remember(draftKey) {
+        mutableStateListOf<Long>().apply { addAll(base.recipeIds) }
+    }
+    var submitted by remember { mutableStateOf(false) }
+    LaunchedEffect(draftKey, title, story, photos, selected.toList()) {
+        if (submitted) { Drafts.clear(context, draftKey); return@LaunchedEffect }
+        val empty = title.isBlank() && story.isBlank() && photos.isEmpty() && selected.isEmpty()
+        if (empty) Drafts.clear(context, draftKey)
+        else Drafts.save(context, draftKey, base.copy(title = title, story = story,
+            photos = photos, recipeIds = selected.toList()).toJson())
+    }
     Page(if (existing == null) "Новый семейный стол" else existing.title, back) {
+        if (draft != null) Text("Черновик восстановлен — продолжайте с того места, где остановились.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         TextBox(title, { title = it }, "Событие: Пасха, Новый год, свадьба…")
         TextBox(story, { story = it }, "Что происходило за столом?", 3)
         PhotoEditor(photos, { photos = it }, "Фото общего стола и праздника")
@@ -54,8 +74,10 @@ fun EventEditScreen(existing: FamilyEvent?, recipes: List<Recipe>, back: () -> U
         }
         if (recipes.isEmpty()) Text("Сначала запишите рецепт, затем добавьте его к этому столу.")
         Action("Сохранить событие", {
+            submitted = true
             save((existing ?: FamilyEvent(title = title)).copy(title = title.trim(), story = story,
                 photos = photos, recipeIds = selected.toList()))
+            Drafts.clear(context, draftKey)
         }, title.isNotBlank())
         if (existing != null) {
             var confirm by remember { mutableStateOf(false) }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
@@ -23,6 +24,12 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import ru.vkusdetstva.data.*
 import ru.vkusdetstva.ui.*
 import kotlinx.coroutines.delay
+import org.json.JSONObject
+
+/** Черновик импорта переживает пересоздание Activity (поворот, звонок) через Bundle. */
+val RecipeDraftSaver = Saver<Recipe?, String>(
+    save = { it?.toJson()?.toString().orEmpty() },
+    restore = { if (it.isEmpty()) null else recipeFromJson(JSONObject(it)) })
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,7 +40,9 @@ class MainActivity : ComponentActivity() {
             val prefs = remember { context.getSharedPreferences("settings", MODE_PRIVATE) }
             val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
             var darkTheme by remember { mutableStateOf(prefs.getBoolean("dark_theme", systemDark)) }
-            var splash by remember { mutableStateOf(true) }
+            // Брендовый сплеш — только при настоящем запуске; при пересоздании Activity
+            // (поворот, звонок) сохраняемое состояние сразу даёт false без паузы.
+            var splash by rememberSaveable { mutableStateOf(true) }
             LaunchedEffect(Unit) { delay(900); splash = false }
             VkusTheme(darkTheme = darkTheme) {
                 val scheme = MaterialTheme.colorScheme
@@ -59,6 +68,7 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun FamilyApp(vm: FamilyViewModel, darkTheme: Boolean, setDarkTheme: (Boolean) -> Unit) {
+    val context = LocalContext.current
     val people by vm.people.collectAsStateWithLifecycle()
     val recipes by vm.recipes.collectAsStateWithLifecycle()
     val versions by vm.versions.collectAsStateWithLifecycle()
@@ -71,7 +81,7 @@ private fun FamilyApp(vm: FamilyViewModel, darkTheme: Boolean, setDarkTheme: (Bo
     var selectedMoment by rememberSaveable { mutableLongStateOf(0L) }
     var selectedEvent by rememberSaveable { mutableLongStateOf(0L) }
     var pantryIngredient by rememberSaveable { mutableStateOf<String?>(null) }
-    var importDraft by remember { mutableStateOf<Recipe?>(null) }
+    var importDraft by rememberSaveable(stateSaver = RecipeDraftSaver) { mutableStateOf<Recipe?>(null) }
     val selected = recipes.find { it.id == selectedRecipe }
     val person = people.find { it.id == selectedPerson }
     val moment = moments.find { it.id == selectedMoment }
@@ -140,6 +150,8 @@ private fun FamilyApp(vm: FamilyViewModel, darkTheme: Boolean, setDarkTheme: (Bo
                 steps = draft.steps.joinToString("\n"),
                 notes = draft.notes, photos = photoPaths)
             selectedRecipe = 0L
+            // Новое распознавание всегда важнее старого черновика формы.
+            Drafts.clear(context, "recipe-import")
             go("recipe-edit")
         }
         "author" -> {

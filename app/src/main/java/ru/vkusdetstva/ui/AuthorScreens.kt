@@ -4,9 +4,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import ru.vkusdetstva.data.AuthorProfile
+import ru.vkusdetstva.data.Drafts
 import ru.vkusdetstva.data.Recipe
+import ru.vkusdetstva.data.authorFromJson
+import ru.vkusdetstva.data.toJson
 
 @Composable
 fun AuthorScreen(profile: AuthorProfile, recipes: List<Recipe>, back: () -> Unit, edit: () -> Unit) {
@@ -42,11 +46,24 @@ fun AuthorScreen(profile: AuthorProfile, recipes: List<Recipe>, back: () -> Unit
 
 @Composable
 fun AuthorEditScreen(existing: AuthorProfile?, back: () -> Unit, save: (AuthorProfile) -> Unit) {
-    var name by remember { mutableStateOf(existing?.name.orEmpty()) }
-    var tagline by remember { mutableStateOf(existing?.tagline.orEmpty()) }
-    var bio by remember { mutableStateOf(existing?.bio.orEmpty()) }
-    var photos by remember { mutableStateOf(existing?.photos.orEmpty()) }
+    val context = LocalContext.current
+    val draft = remember("author") { Drafts.load(context, "author") }
+    val base = remember("author") { draft?.let(::authorFromJson) ?: existing ?: AuthorProfile() }
+    var name by remember("author") { mutableStateOf(base.name) }
+    var tagline by remember("author") { mutableStateOf(base.tagline) }
+    var bio by remember("author") { mutableStateOf(base.bio) }
+    var photos by remember("author") { mutableStateOf(base.photos) }
+    var submitted by remember { mutableStateOf(false) }
+    LaunchedEffect("author", name, tagline, bio, photos) {
+        if (submitted) { Drafts.clear(context, "author"); return@LaunchedEffect }
+        val empty = name.isBlank() && tagline.isBlank() && bio.isBlank() && photos.isEmpty()
+        if (empty) Drafts.clear(context, "author")
+        else Drafts.save(context, "author",
+            base.copy(name = name, tagline = tagline, bio = bio, photos = photos).toJson())
+    }
     Page("Профиль автора книги", back) {
+        if (draft != null) Text("Черновик восстановлен — продолжайте с того места, где остановились.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text("Автор — тот, кто ведёт семейную книгу. Рецепты, которые не подписаны чьим-то именем, выходят от лица автора.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -63,8 +80,10 @@ fun AuthorEditScreen(existing: AuthorProfile?, back: () -> Unit, save: (AuthorPr
         TextBox(tagline, { tagline = it }, "Кем приходитесь: внук, дочка, хранитель рецептов…")
         TextBox(bio, { bio = it }, "Расскажите, кто такой автор — пара строк о себе и о книге", 4)
         Action("Сохранить профиль автора", {
+            submitted = true
             save(AuthorProfile(name = name.trim(), tagline = tagline.trim(),
                 bio = bio.trim(), photos = photos))
+            Drafts.clear(context, "author")
         }, name.isNotBlank())
         if (existing == null && name.isBlank()) {
             Text("Имя появится в книге: на странице рецепта, в главе автора и на титуле издания.",

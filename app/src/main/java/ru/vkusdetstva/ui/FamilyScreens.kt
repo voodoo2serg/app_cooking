@@ -10,9 +10,12 @@ import androidx.compose.ui.unit.dp
 import ru.vkusdetstva.data.FamilyMoment
 import ru.vkusdetstva.data.Person
 import ru.vkusdetstva.data.Recipe
-
+import ru.vkusdetstva.data.Drafts
 import ru.vkusdetstva.data.RecipeVersion
 import ru.vkusdetstva.data.AuthorProfile
+import ru.vkusdetstva.data.personFromJson
+import ru.vkusdetstva.data.momentFromJson
+import ru.vkusdetstva.data.toJson
 import ru.vkusdetstva.util.FamilyShare
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.Dispatchers
@@ -71,19 +74,37 @@ fun PersonScreen(person: Person, recipes: List<Recipe>, back: () -> Unit,
 
 @Composable
 fun PersonEditScreen(existing: Person?, back: () -> Unit, save: (Person) -> Unit) {
-    var name by remember(existing?.id) { mutableStateOf(existing?.name.orEmpty()) }
-    var relation by remember(existing?.id) { mutableStateOf(existing?.relation.orEmpty()) }
-    var years by remember(existing?.id) { mutableStateOf(existing?.years.orEmpty()) }
-    var story by remember(existing?.id) { mutableStateOf(existing?.story.orEmpty()) }
-    var photos by remember(existing?.id) { mutableStateOf(existing?.photos.orEmpty()) }
+    val context = LocalContext.current
+    val draftKey = if (existing == null) "person-new" else "person-edit-${existing.id}"
+    val draft = remember(draftKey) { Drafts.load(context, draftKey) }
+    val base = remember(draftKey) { draft?.let(::personFromJson) ?: existing ?: Person(name = "") }
+    var name by remember(draftKey) { mutableStateOf(base.name) }
+    var relation by remember(draftKey) { mutableStateOf(base.relation) }
+    var years by remember(draftKey) { mutableStateOf(base.years) }
+    var story by remember(draftKey) { mutableStateOf(base.story) }
+    var photos by remember(draftKey) { mutableStateOf(base.photos) }
+    var submitted by remember { mutableStateOf(false) }
+    LaunchedEffect(draftKey, name, relation, years, story, photos) {
+        if (submitted) { Drafts.clear(context, draftKey); return@LaunchedEffect }
+        val empty = name.isBlank() && relation.isBlank() && years.isBlank() && story.isBlank() && photos.isEmpty()
+        if (empty) Drafts.clear(context, draftKey)
+        else Drafts.save(context, draftKey,
+            base.copy(name = name, relation = relation, years = years, story = story, photos = photos).toJson())
+    }
     Page(if (existing == null) "Человек в семейной книге" else "История человека", back) {
+        if (draft != null) Text("Черновик восстановлен — продолжайте с того места, где остановились.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         PhotoEditor(photos, { photos = it }, "Фотографии человека · можно несколько")
         TextBox(name, { name = it }, "Имя")
         TextBox(relation, { relation = it }, "Кем приходится: бабушка, мама…")
         TextBox(years, { years = it }, "Годы жизни — если хочется указать")
         TextBox(story, { story = it }, "Воспоминания и заметки", 4)
-        Action("Сохранить", { save((existing ?: Person(name = name)).copy(name = name.trim(),
-            relation = relation, years = years, story = story, photos = photos)) }, name.isNotBlank())
+        Action("Сохранить", {
+            submitted = true
+            save((existing ?: Person(name = name)).copy(name = name.trim(),
+                relation = relation, years = years, story = story, photos = photos))
+            Drafts.clear(context, draftKey)
+        }, name.isNotBlank())
     }
 }
 
@@ -105,18 +126,36 @@ fun MomentsScreen(moments: List<FamilyMoment>, back: () -> Unit,
 @Composable
 fun MomentEditScreen(existing: FamilyMoment?, back: () -> Unit,
                      save: (FamilyMoment) -> Unit, delete: () -> Unit) {
-    var title by remember(existing?.id) { mutableStateOf(existing?.title.orEmpty()) }
-    var story by remember(existing?.id) { mutableStateOf(existing?.story.orEmpty()) }
-    var people by remember(existing?.id) { mutableStateOf(existing?.people.orEmpty()) }
-    var photos by remember(existing?.id) { mutableStateOf(existing?.photos.orEmpty()) }
+    val context = LocalContext.current
+    val draftKey = if (existing == null) "moment-new" else "moment-edit-${existing.id}"
+    val draft = remember(draftKey) { Drafts.load(context, draftKey) }
+    val base = remember(draftKey) { draft?.let(::momentFromJson) ?: existing ?: FamilyMoment(title = "") }
+    var title by remember(draftKey) { mutableStateOf(base.title) }
+    var story by remember(draftKey) { mutableStateOf(base.story) }
+    var people by remember(draftKey) { mutableStateOf(base.people) }
+    var photos by remember(draftKey) { mutableStateOf(base.photos) }
+    var submitted by remember { mutableStateOf(false) }
+    LaunchedEffect(draftKey, title, story, people, photos) {
+        if (submitted) { Drafts.clear(context, draftKey); return@LaunchedEffect }
+        val empty = title.isBlank() && story.isBlank() && people.isBlank() && photos.isEmpty()
+        if (empty) Drafts.clear(context, draftKey)
+        else Drafts.save(context, draftKey,
+            base.copy(title = title, story = story, people = people, photos = photos).toJson())
+    }
     Page(if (existing == null) "Семья за столом" else "Фотоистория", back) {
+        if (draft != null) Text("Черновик восстановлен — продолжайте с того места, где остановились.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         PhotoEditor(photos, { photos = it }, "Фото семьи и готового блюда")
         TextBox(title, { title = it }, "Название события")
         TextBox(story, { story = it }, "Что происходило за столом?", 3)
         TextBox(people, { people = it }, "Кто на фотографиях?")
         Text("Снимки останутся в семейном архиве. Вы сможете включить их в книгу отдельно от рецептов.")
-        Action("Сохранить фотоисторию", { save((existing ?: FamilyMoment(title = title)).copy(
-            title = title.trim(), story = story, people = people, photos = photos)) }, title.isNotBlank())
+        Action("Сохранить фотоисторию", {
+            submitted = true
+            save((existing ?: FamilyMoment(title = title)).copy(
+                title = title.trim(), story = story, people = people, photos = photos))
+            Drafts.clear(context, draftKey)
+        }, title.isNotBlank())
         if (existing != null) TextButton(onClick = delete) { Text("Удалить фотоисторию") }
     }
 }

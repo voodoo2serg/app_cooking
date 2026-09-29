@@ -12,9 +12,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import ru.vkusdetstva.data.AuthorProfile
+import ru.vkusdetstva.data.Drafts
 import ru.vkusdetstva.data.Person
 import ru.vkusdetstva.data.Recipe
 import ru.vkusdetstva.data.RecipeVersion
+import ru.vkusdetstva.data.recipeFromJson
+import ru.vkusdetstva.data.versionFromJson
+import ru.vkusdetstva.data.toJson
 import ru.vkusdetstva.util.AudioNote
 import ru.vkusdetstva.util.FamilyShare
 
@@ -25,24 +29,48 @@ import kotlinx.coroutines.withContext
 
 @Composable
 fun RecipeEditScreen(existing: Recipe?, people: List<Person>, back: () -> Unit, save: (Recipe) -> Unit) {
-    var title by remember(existing?.id) { mutableStateOf(existing?.title.orEmpty()) }
-    var personId by remember(existing?.id) { mutableStateOf(existing?.personId) }
-    var story by remember(existing?.id) { mutableStateOf(existing?.story.orEmpty()) }
-    val ingredientLines = remember(existing?.id) {
-        mutableStateListOf<IngredientLine>().apply { addAll(parseIngredientLines(existing?.ingredients.orEmpty())) }
-    }
-    var steps by remember(existing?.id) { mutableStateOf(existing?.steps.orEmpty()) }
-    var notes by remember(existing?.id) { mutableStateOf(existing?.notes.orEmpty()) }
-    var photos by remember(existing?.id) { mutableStateOf(existing?.photos.orEmpty()) }
-    var audioPath by remember(existing?.id) { mutableStateOf(existing?.audioPath) }
-    var recording by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    // Черновик живёт на диске: поворот экрана, звонок и даже перезапуск приложения
+    // не теряют ни слова. Ключ различает новый рецепт, черновик после импорта
+    // и редактирование уже существующего рецепта.
+    val draftKey = when {
+        existing == null -> "recipe-new"
+        existing.id == 0L -> "recipe-import"
+        else -> "recipe-edit-${existing.id}"
+    }
+    val draft = remember(draftKey) { Drafts.load(context, draftKey) }
+    val base = remember(draftKey) { draft?.let(::recipeFromJson) ?: existing ?: Recipe(title = "") }
+    var title by remember(draftKey) { mutableStateOf(base.title) }
+    var personId by remember(draftKey) { mutableStateOf(base.personId) }
+    var story by remember(draftKey) { mutableStateOf(base.story) }
+    val ingredientLines = remember(draftKey) {
+        mutableStateListOf<IngredientLine>().apply { addAll(parseIngredientLines(base.ingredients)) }
+    }
+    var steps by remember(draftKey) { mutableStateOf(base.steps) }
+    var notes by remember(draftKey) { mutableStateOf(base.notes) }
+    var photos by remember(draftKey) { mutableStateOf(base.photos) }
+    var audioPath by remember(draftKey) { mutableStateOf(base.audioPath) }
+    var recording by remember { mutableStateOf(false) }
+    var submitted by remember { mutableStateOf(false) }
     val recorder = remember { AudioNote(context) }
     DisposableEffect(recorder) { onDispose { recorder.release() } }
     val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) runCatching { recorder.start() }.onSuccess { recording = true }
     }
+    // Автосохранение: каждое изменение тут же пишется на диск; пустая форма — черновик стирается;
+    // после успешного сохранения submitted запрещает «воскрешение» черновика.
+    LaunchedEffect(draftKey, title, personId, story, steps, notes, photos, audioPath, ingredientLines.toList()) {
+        if (submitted) { Drafts.clear(context, draftKey); return@LaunchedEffect }
+        val empty = title.isBlank() && story.isBlank() && steps.isBlank() && notes.isBlank() &&
+            ingredientLines.isEmpty() && photos.isEmpty() && audioPath == null
+        if (empty) Drafts.clear(context, draftKey)
+        else Drafts.save(context, draftKey, base.copy(title = title, personId = personId, story = story,
+            ingredients = formatIngredientLines(ingredientLines), steps = steps, notes = notes,
+            photos = photos, audioPath = audioPath).toJson())
+    }
     Page(if (existing == null) "Новый семейный рецепт" else "Изменить рецепт", back) {
+        if (draft != null) Text("Черновик восстановлен — продолжайте с того места, где остановились.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         TextBox(title, { title = it }, "Название")
         Text("От кого рецепт", style = MaterialTheme.typography.titleSmall)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -75,9 +103,11 @@ fun RecipeEditScreen(existing: Recipe?, people: List<Person>, back: () -> Unit, 
         }
         if (audioPath != null) Text("Аудиозаметка сохранена", style = MaterialTheme.typography.bodySmall)
         Action("Сохранить рецепт", { if (recording) { audioPath = recorder.stop(); recording = false }
+            submitted = true
             save((existing ?: Recipe(title = title)).copy(title = title.trim(), personId = personId,
                 story = story, ingredients = formatIngredientLines(ingredientLines), steps = steps, notes = notes,
-                photos = photos, audioPath = audioPath)) }, title.isNotBlank())
+                photos = photos, audioPath = audioPath))
+            Drafts.clear(context, draftKey) }, title.isNotBlank())
         Spacer(Modifier.height(24.dp))
     }
 }
@@ -194,18 +224,34 @@ private fun Rating(label: String, value: Float, change: (Float) -> Unit, save: (
 
 @Composable
 fun VersionEditScreen(recipe: Recipe, back: () -> Unit, save: (RecipeVersion) -> Unit) {
-    var name by remember { mutableStateOf("") }
-    var change by remember { mutableStateOf("") }
-    var note by remember { mutableStateOf("") }
-    var photos by remember { mutableStateOf(emptyList<String>()) }
+    val context = LocalContext.current
+    val draftKey = "version-${recipe.id}"
+    val draft = remember(draftKey) { Drafts.load(context, draftKey) }
+    val base = remember(draftKey) {
+        draft?.let(::versionFromJson) ?: RecipeVersion(recipeId = recipe.id, personName = "", change = "")
+    }
+    var name by remember(draftKey) { mutableStateOf(base.personName) }
+    var change by remember(draftKey) { mutableStateOf(base.change) }
+    var note by remember(draftKey) { mutableStateOf(base.note) }
+    var photos by remember(draftKey) { mutableStateOf(base.photos) }
+    var submitted by remember { mutableStateOf(false) }
+    LaunchedEffect(draftKey, name, change, note, photos) {
+        if (submitted) { Drafts.clear(context, draftKey); return@LaunchedEffect }
+        val empty = name.isBlank() && change.isBlank() && note.isBlank() && photos.isEmpty()
+        if (empty) Drafts.clear(context, draftKey)
+        else Drafts.save(context, draftKey,
+            base.copy(personName = name, change = change, note = note, photos = photos).toJson())
+    }
     Page("Моя версия: ${recipe.title}", back) {
         TextBox(name, { name = it }, "Кто приготовил")
         TextBox(change, { change = it }, "Что изменили в рецепте?", 2)
         TextBox(note, { note = it }, "Как получилось?", 2)
         PhotoEditor(photos, { photos = it }, "Фото вашей версии")
         Action("Сохранить семейную версию", {
+            submitted = true
             save(RecipeVersion(recipeId = recipe.id, personName = name.trim(), change = change.trim(),
                 note = note, photos = photos))
+            Drafts.clear(context, draftKey)
         }, name.isNotBlank() && change.isNotBlank())
     }
 }

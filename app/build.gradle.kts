@@ -15,8 +15,8 @@ android {
         minSdk = 26
         targetSdk = 35
 
-        versionCode = 9
-        versionName = "0.7.8"
+        versionCode = 10
+        versionName = "0.7.9"
     }
     // Один общий ключ подписи для debug- и release-сборок: тогда APK, собранный
     // локально и в CI, ставится поверх установленного приложения как обновление.
