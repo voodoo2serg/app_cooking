@@ -2,12 +2,16 @@ package ru.vkusdetstva.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import ru.vkusdetstva.BuildConfig
 import ru.vkusdetstva.data.AuthorProfile
 import ru.vkusdetstva.data.FamilyMoment
 import ru.vkusdetstva.data.Person
@@ -46,11 +50,22 @@ fun SettingsScreen(back: () -> Unit, people: List<Person>, recipes: List<Recipe>
     }
     Page("Настройки", back) {
         Section("Профиль автора")
-        ListTile(author?.name?.takeIf { it.isNotBlank() } ?: "Автор ещё не заполнен",
-            author?.name?.takeIf { it.isNotBlank() }?.let { n ->
-                listOf(author?.tagline.orEmpty(), "неподписанные рецепты — от его лица")
-                    .filter { it.isNotBlank() }.joinToString(" · ")
-            } ?: "Рецепты без подписи выходят от лица автора", openAuthor)
+        Card(Modifier.fillMaxWidth().clickable(onClick = openAuthor),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                AuthorAvatar(author?.photos.orEmpty(), author?.name.orEmpty(), 44.dp)
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text(author?.name?.takeIf { it.isNotBlank() } ?: "Автор ещё не заполнен",
+                        fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                    Text(author?.name?.takeIf { it.isNotBlank() }?.let { n ->
+                        listOf(author?.tagline.orEmpty(), "неподписанные рецепты — от его лица")
+                            .filter { it.isNotBlank() }.joinToString(" · ")
+                    } ?: "Рецепты без подписи выходят от лица автора",
+                        style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
         Section("Оформление")
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp),
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -77,6 +92,6 @@ fun SettingsScreen(back: () -> Unit, people: List<Person>, recipes: List<Recipe>
             dismissButton = { TextButton(onClick = { confirmRestore = false }) { Text("Отмена") } })
         if (status.isNotBlank()) Text(status, style = MaterialTheme.typography.bodySmall)
         Section("О приложении")
-        Text("Вкус детства · версия 0.3.0")
+        Text("Вкус детства · версия ${BuildConfig.VERSION_NAME} (код ${BuildConfig.VERSION_CODE})")
     }
 }

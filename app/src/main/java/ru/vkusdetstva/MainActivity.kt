@@ -85,7 +85,7 @@ private fun FamilyApp(vm: FamilyViewModel, darkTheme: Boolean, setDarkTheme: (Bo
 
     Scaffold(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).safeDrawingPadding(),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = { if (route == "home") BrandHeader() },
+        topBar = { if (route == "home") BrandHeader(author) { go("author") } },
         bottomBar = { FamilyBottomBar(route) { destination ->
             if (destination == "recipe-edit") selectedRecipe = 0L
             route = destination

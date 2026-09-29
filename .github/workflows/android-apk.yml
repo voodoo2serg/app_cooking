@@ -3,6 +3,8 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -26,8 +28,13 @@ jobs:
         run: |
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk
+      - name: Name APK with app version
+        run: |
+          ver=$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")
+          cp app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/vkus-detstva-$ver.apk"
+          echo "Artifact: vkus-detstva-$ver.apk"
       - uses: actions/upload-artifact@v4
         with:
           name: vkus-detstva-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/vkus-detstva-*.apk
           if-no-files-found: error

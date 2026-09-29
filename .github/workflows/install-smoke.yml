@@ -9,6 +9,14 @@ on:
       - 'settings.gradle.kts'
       - '.github/workflows/install-smoke.yml'
       - 'scripts/install-smoke.sh'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - '.github/workflows/install-smoke.yml'
+      - 'scripts/install-smoke.sh'
 
 jobs:
   install-and-launch:
@@ -42,9 +50,13 @@ jobs:
           disable-animations: true
           script: bash scripts/install-smoke.sh
       - name: Record checksum and upload tested APK
-        run: sha256sum app/build/outputs/apk/debug/app-debug.apk
+        run: |
+          sha256sum app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs app/build/outputs/apk/debug/app-debug.apk | sed -n '1,3p'
+          ver=$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | sed -n "s/.*versionName='\([^']*\)'.*/\1/p")
+          cp app/build/outputs/apk/debug/app-debug.apk "app/build/outputs/apk/debug/vkus-detstva-$ver.apk"
       - uses: actions/upload-artifact@v4
         with:
           name: vkus-detstva-android15-tested-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/vkus-detstva-*.apk
           if-no-files-found: error
