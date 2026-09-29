@@ -1,0 +1,62 @@
+name: Test VPS access preflight
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Tailscale MagicDNS name or 100.x address of the test VPS
+        required: true
+        type: string
+      ssh_user:
+        description: Linux user allowed by the tailnet SSH policy
+        required: true
+        default: deploy
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: test-vps-access-preflight
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    name: Verify Tailscale and SSH access
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Validate required settings
+        env:
+          TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          TS_AUDIENCE: ${{ secrets.TS_AUDIENCE }}
+          TARGET: ${{ inputs.target }}
+          SSH_USER: ${{ inputs.ssh_user }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$TS_OAUTH_CLIENT_ID" || -z "$TS_AUDIENCE" ]]; then
+            echo "::error::Add TS_OAUTH_CLIENT_ID and TS_AUDIENCE as GitHub Actions secrets for this repository."
+            exit 1
+          fi
+          [[ "$TARGET" =~ ^[A-Za-z0-9.-]+$ ]] || { echo "::error::Target must be a Tailscale DNS name or IPv4 address."; exit 1; }
+          [[ "$SSH_USER" =~ ^[a-z_][a-z0-9_-]*\$?$ ]] || { echo "::error::SSH user has an invalid format."; exit 1; }
+
+      - name: Join the Tailscale network
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          audience: ${{ secrets.TS_AUDIENCE }}
+          tags: tag:ci
+          ping: ${{ inputs.target }}
+          log-mode: quiet
+
+      - name: Verify SSH without changing the server
+        env:
+          TARGET: ${{ inputs.target }}
+          SSH_USER: ${{ inputs.ssh_user }}
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new \
+            "$SSH_USER@$TARGET" 'test "$(uname -s)" = Linux' >/dev/null
+          echo "Tailscale reachability and SSH authentication succeeded. No server files were changed."
