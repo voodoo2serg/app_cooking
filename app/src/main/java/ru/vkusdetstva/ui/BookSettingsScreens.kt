@@ -13,6 +13,7 @@ import ru.vkusdetstva.data.FamilyMoment
 import ru.vkusdetstva.data.Person
 import ru.vkusdetstva.data.Recipe
 import ru.vkusdetstva.data.RecipeVersion
+import ru.vkusdetstva.data.FamilyEvent
 import ru.vkusdetstva.util.FamilyArchive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -21,7 +22,7 @@ import kotlinx.coroutines.withContext
 @Composable
 fun SettingsScreen(back: () -> Unit, people: List<Person>, recipes: List<Recipe>,
                    versions: List<RecipeVersion>, moments: List<FamilyMoment>,
-                   author: AuthorProfile? = null, darkTheme: Boolean = false,
+                   events: List<FamilyEvent> = emptyList(), author: AuthorProfile? = null, darkTheme: Boolean = false,
                    onDarkThemeChange: (Boolean) -> Unit = {}, openAuthor: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -33,7 +34,7 @@ fun SettingsScreen(back: () -> Unit, people: List<Person>, recipes: List<Recipe>
     val backup = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         if (uri != null) scope.launch {
             status = "Сохраняем архив…"
-            status = runCatching { withContext(Dispatchers.IO) { FamilyArchive.export(context, uri, people, recipes, versions, moments, author) } }
+            status = runCatching { withContext(Dispatchers.IO) { FamilyArchive.export(context, uri, people, recipes, versions, moments, author, events) } }
                 .fold({ "Архив сохранён" }, { "Ошибка: ${it.message}" })
         }
     }
@@ -64,7 +65,7 @@ fun SettingsScreen(back: () -> Unit, people: List<Person>, recipes: List<Recipe>
         TextBox(familyName, { familyName = it; prefs.edit().putString("family_name", it).apply() }, "Название семейного архива")
         TextBox(bookTitle, { bookTitle = it; prefs.edit().putString("book_title", it).apply() }, "Название книги по умолчанию")
         Section("Данные и приватность")
-        Text("Рецепты, фотографии, аудио и фотоистории хранятся на устройстве. Учётная запись и облачная синхронизация не требуются.")
+        Text("Рецепты, события, фотографии, аудио и фотоистории хранятся на устройстве. Общая лента между телефонами потребует серверной синхронизации.")
         Spacer(Modifier.height(10.dp))
         Text("Создайте архив ZIP для переноса и сохраните его вне телефона. Восстановление заменяет текущую коллекцию данными из архива.",
             style = MaterialTheme.typography.bodySmall)

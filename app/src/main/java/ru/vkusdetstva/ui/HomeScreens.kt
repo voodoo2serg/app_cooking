@@ -79,6 +79,7 @@ fun HomeScreen(recipes: List<Recipe>, people: List<Person>, add: () -> Unit,
         Section("Продолжить историю")
         ListTile("Подбор по ингредиентам", "Выберите продукты из разделов и найдите подходящее блюдо") { go("pantry") }
         ListTile("Как мы это едим", "Фотографии семьи за столом и воспоминания") { go("moments") }
+        ListTile("События и столы", "Пасха, Новый год, свадьба — несколько блюд за одним столом") { go("events") }
         ListTile("Лента семейного стола", "Рецепты и застолья этого архива · отметьте любимые") { go("feed") }
         ListTile("Список в магазин", "Блюда на ужин → продукты понятными упаковками") { go("shopping") }
         ListTile("Собрать семейную книгу", "Выберите рецепты и проверьте связи с людьми") { go("book") }
@@ -87,9 +88,9 @@ fun HomeScreen(recipes: List<Recipe>, people: List<Person>, add: () -> Unit,
 }
 
 @Composable
-fun ShoppingListScreen(recipes: List<Recipe>, back: () -> Unit) {
+fun ShoppingListScreen(recipes: List<Recipe>, back: () -> Unit, initialRecipeIds: List<Long> = emptyList()) {
     val context = LocalContext.current
-    val selected = remember { mutableStateListOf<Long>() }
+    val selected = remember(initialRecipeIds) { mutableStateListOf<Long>().apply { addAll(initialRecipeIds) } }
     val list = remember(recipes, selected.toList()) { ShoppingListBuilder.build(recipes.filter { it.id in selected }) }
     Page("Список в магазин", back) {
         Text("Выберите блюда. Список можно отправить ребёнку или другому близкому человеку.")

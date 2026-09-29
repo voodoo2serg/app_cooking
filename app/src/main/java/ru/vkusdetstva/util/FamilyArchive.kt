@@ -14,7 +14,8 @@ import java.util.zip.ZipOutputStream
 
 object FamilyArchive {
     fun export(context: Context, uri: Uri, people: List<Person>, recipes: List<Recipe>,
-               versions: List<RecipeVersion>, moments: List<FamilyMoment>, author: AuthorProfile? = null) {
+               versions: List<RecipeVersion>, moments: List<FamilyMoment>, author: AuthorProfile? = null,
+               events: List<FamilyEvent> = emptyList()) {
         val files = linkedMapOf<String, File>()
         fun media(path: String?): String {
             val file = path?.let(::File) ?: return ""
@@ -44,6 +45,10 @@ object FamilyArchive {
         root.put("moments", JSONArray().apply { moments.forEach { m -> put(JSONObject()
             .put("id", m.id).put("title", m.title).put("story", m.story).put("people", m.people)
             .put("photos", photos(m.photos)).put("createdAt", m.createdAt).put("likes", m.likes)) } })
+        root.put("events", JSONArray().apply { events.forEach { event -> put(JSONObject()
+            .put("id", event.id).put("title", event.title).put("story", event.story)
+            .put("recipeIds", JSONArray(event.recipeIds)).put("photos", photos(event.photos))
+            .put("createdAt", event.createdAt)) } })
         author?.let { a -> root.put("author", JSONObject()
             .put("name", a.name).put("tagline", a.tagline).put("bio", a.bio)
             .put("photos", photos(a.photos))) }
@@ -107,6 +112,11 @@ object FamilyArchive {
             val moments = data.getJSONArray("moments").objects().map { m -> FamilyMoment(
                 m.getLong("id"), m.getString("title"), m.getString("story"), m.getString("people"),
                 getPhotos(m), m.getLong("createdAt"), m.optInt("likes")) }
+            val events = data.optJSONArray("events")?.objects().orEmpty().map { event ->
+                val ids = event.getJSONArray("recipeIds")
+                FamilyEvent(event.getLong("id"), event.getString("title"), event.optString("story"),
+                    (0 until ids.length()).map(ids::getLong), getPhotos(event), event.getLong("createdAt"))
+            }
             val author = data.optJSONObject("author")?.let { a -> AuthorProfile(1L,
                 a.optString("name"), a.optString("tagline"), a.optString("bio"), getPhotos(a)) }
             val dest = File(context.filesDir, "restored_${UUID.randomUUID()}").apply { mkdirs() }
@@ -115,11 +125,12 @@ object FamilyArchive {
             val db = AppDatabase.get(context)
             db.withTransaction {
                 val dao = db.dao()
-                dao.clearVersions(); dao.clearRecipes(); dao.clearPeople(); dao.clearMoments(); dao.clearAuthor()
+                dao.clearVersions(); dao.clearRecipes(); dao.clearPeople(); dao.clearMoments(); dao.clearEvents(); dao.clearAuthor()
                 people.forEach { dao.addPerson(it.copy(photos = remap(it.photos))) }
                 recipes.forEach { dao.addRecipe(it.copy(photos = remap(it.photos), audioPath = it.audioPath?.let { path -> remap(listOf(path)).first() })) }
                 versions.forEach { dao.addVersion(it.copy(photos = remap(it.photos))) }
                 moments.forEach { dao.addMoment(it.copy(photos = remap(it.photos))) }
+                events.forEach { dao.addEvent(it.copy(photos = remap(it.photos))) }
                 author?.let { dao.upsertAuthor(it.copy(photos = remap(it.photos))) }
             }
             context.getSharedPreferences("settings", 0).edit()
