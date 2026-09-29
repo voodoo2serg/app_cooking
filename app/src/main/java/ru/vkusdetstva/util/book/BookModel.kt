@@ -12,6 +12,14 @@ enum class CoverBackground { SOLID, PHOTO, PATTERN }
 enum class PageTone { WHITE, CREAM }
 enum class FontChoice { SANS, SERIF }
 
+/** Размер листа в пунктах PDF (1/72 дюйма). Пропорции у A-серии одинаковы, поэтому вёрстка масштабируется без переверстки. */
+enum class PageFormat(val w: Float, val h: Float, val label: String) {
+    A5(420f, 595f, "A5"), A4(595f, 842f, "A4"), A3(842f, 1191f, "A3")
+}
+
+/** Книжный — одна страница PDF на страницу книги; альбомный — целый разворот (лево+право) на листе. */
+enum class Orientation { PORTRAIT, ALBUM }
+
 data class BookOptions(
     val title: String = "Фамильные рецепты",
     val familyName: String = "Моя семья",
@@ -29,7 +37,13 @@ data class BookOptions(
     val linedPageCount: Int = 4,
     val showRatings: Boolean = true,
     val showTimesCooked: Boolean = true,
-    val maxVersions: Int = 3
+    val maxVersions: Int = 3,
+    val pageSize: PageFormat = PageFormat.A5,
+    val orientation: Orientation = Orientation.PORTRAIT,
+    /** Пускать ли в раздел «Люди нашей книги» тех, о ком ещё нет рецептов. */
+    val includePeopleWithoutRecipes: Boolean = true,
+    /** Эмоциональные цитаты-рамки для блюд без своей истории. */
+    val showQuotes: Boolean = true
 )
 
 data class TocEntry(val label: String, val level: Int, val refKey: String, val page: Int? = null)

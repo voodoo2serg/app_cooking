@@ -64,7 +64,11 @@ private fun loadBookOptions(context: android.content.Context): BookOptions {
             linedPageCount = o.optInt("linedPageCount", 4),
             showRatings = o.optBoolean("showRatings", true),
             showTimesCooked = o.optBoolean("showTimesCooked", true),
-            maxVersions = o.optInt("maxVersions", 3)
+            maxVersions = o.optInt("maxVersions", 3),
+            pageSize = runCatching { PageFormat.valueOf(o.optString("pageSize", "A5")) }.getOrDefault(PageFormat.A5),
+            orientation = runCatching { Orientation.valueOf(o.optString("orientation", "PORTRAIT")) }.getOrDefault(Orientation.PORTRAIT),
+            includePeopleWithoutRecipes = o.optBoolean("includePeopleWithoutRecipes", true),
+            showQuotes = o.optBoolean("showQuotes", true)
         )
     }.getOrDefault(base)
 }
@@ -88,6 +92,10 @@ private fun saveBookOptions(context: android.content.Context, options: BookOptio
         .put("showRatings", options.showRatings)
         .put("showTimesCooked", options.showTimesCooked)
         .put("maxVersions", options.maxVersions)
+        .put("pageSize", options.pageSize.name)
+        .put("orientation", options.orientation.name)
+        .put("includePeopleWithoutRecipes", options.includePeopleWithoutRecipes)
+        .put("showQuotes", options.showQuotes)
     context.getSharedPreferences("book_options", 0).edit().putString("json", json.toString()).apply()
 }
 
@@ -110,7 +118,10 @@ fun BookWizard(people: List<Person>, recipes: List<Recipe>, versions: List<Recip
 
     fun fileName(booklet: Boolean): String {
         val base = options.title.ifBlank { "Семейная книга" }
-        return if (booklet) "$base — печать A4 пополам.pdf" else "$base.pdf"
+        val size = options.pageSize.label
+        return if (booklet) "$base — печать A4 пополам.pdf"
+        else if (options.orientation == Orientation.ALBUM) "$base — $size альбомный.pdf"
+        else "$base — $size книжный.pdf"
     }
 
     val savePdf = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
@@ -215,6 +226,27 @@ fun BookWizard(people: List<Person>, recipes: List<Recipe>, versions: List<Recip
         ChoiceChips("Семейных версий на рецепт", listOf("1" to 1, "3" to 3, "5" to 5, "Все" to 99),
             options.maxVersions) { update(options.copy(maxVersions = it)) }
 
+        Section("Формат и вид книги")
+        Text("Выберите размер листа и вид до сборки PDF — от этого зависят все страницы.",
+            style = MaterialTheme.typography.bodySmall)
+        Spacer(Modifier.height(6.dp))
+        ChoiceChips("Размер листа", listOf("A5 (14,8 × 21 см)" to PageFormat.A5,
+            "A4 (21 × 29,7 см)" to PageFormat.A4, "A3 (29,7 × 42 см)" to PageFormat.A3),
+            options.pageSize) { update(options.copy(pageSize = it)) }
+        ChoiceChips("Вид", listOf("Книжный" to Orientation.PORTRAIT,
+            "Альбомный (разворот)" to Orientation.ALBUM),
+            options.orientation) { update(options.copy(orientation = it)) }
+        if (options.orientation == Orientation.ALBUM) {
+            Text("Альбомный вид: одна страница PDF — целый разворот, левая и правая страницы рядом. Удобно смотреть на компьютере и планшете.",
+                style = MaterialTheme.typography.bodySmall)
+            Spacer(Modifier.height(6.dp))
+        }
+        SwitchRow("Люди без рецептов в разделе «Люди нашей книги»",
+            options.includePeopleWithoutRecipes) { update(options.copy(includePeopleWithoutRecipes = it)) }
+        SwitchRow("Цитаты-рамки для блюд без истории", options.showQuotes) {
+            update(options.copy(showQuotes = it))
+        }
+
         if (recipes.isNotEmpty()) {
             Section("Обложка · нажмите, чтобы сменить шаблон")
             preview?.let { bitmap ->
@@ -236,7 +268,7 @@ fun BookWizard(people: List<Person>, recipes: List<Recipe>, versions: List<Recip
                 CoverTemplate.CLASSIC -> "Классика"
                 CoverTemplate.PHOTO -> "Фото"
                 CoverTemplate.ARCHIVE -> "Архив"
-            }} · цвет: ${coverColors.entries.firstOrNull { it.value.toInt() == options.coverColor }?.key ?: "свой"}",
+            }} · цвет: ${coverColors.entries.firstOrNull { it.value.toInt() == options.coverColor }?.key ?: "свой"} · лист: ${options.pageSize.label}",
                 style = MaterialTheme.typography.bodySmall)
         }
 

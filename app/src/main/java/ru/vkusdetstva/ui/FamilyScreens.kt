@@ -18,9 +18,6 @@ import ru.vkusdetstva.data.momentFromJson
 import ru.vkusdetstva.data.toJson
 import ru.vkusdetstva.util.FamilyShare
 import androidx.compose.ui.platform.LocalContext
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 @Composable
 fun PeopleScreen(people: List<Person>, back: () -> Unit, open: (Long) -> Unit, add: () -> Unit) {
@@ -37,9 +34,6 @@ fun PersonScreen(person: Person, recipes: List<Recipe>, back: () -> Unit,
                  edit: () -> Unit, openRecipe: (Long) -> Unit, delete: () -> Unit,
                  versions: List<RecipeVersion> = emptyList(), author: AuthorProfile? = null) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var sharing by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf("") }
     Page(person.name, back) {
         PhotoCarousel(person.photos, "Фотографии ${person.name}")
         Text(listOf(person.relation, person.years).filter { it.isNotBlank() }.joinToString(" · "))
@@ -47,20 +41,15 @@ fun PersonScreen(person: Person, recipes: List<Recipe>, back: () -> Unit,
         Section("Её или его рецепты · ${recipes.size}")
         recipes.forEach { ListTile(it.title, it.story.take(90), { openRecipe(it.id) }) }
         if (recipes.isNotEmpty()) {
-
+            Text("Глава с этими рецептами уходит простым текстом — письмом или в соцсети.",
+                style = MaterialTheme.typography.bodySmall)
             OutlinedButton(onClick = {
-                scope.launch {
-                    sharing = true; error = ""
-                    val result = runCatching { withContext(Dispatchers.IO) {
-                        FamilyShare.createPdf(context, "Рецепты ${person.name}", recipes, listOf(person),
-                            versions.filter { v -> recipes.any { it.id == v.recipeId } }, author)
-                    } }
-                    sharing = false
-                    result.fold({ FamilyShare.sharePdf(context, "Рецепты ${person.name}", it) },
-                        { error = "Не удалось создать PDF: ${it.message}" })
+                val text = recipes.joinToString("\n\n———\n\n") {
+                    FamilyShare.recipeText(it, person, author)
                 }
-            }, enabled = !sharing) { Text(if (sharing) "Собираем главу…" else "Отправить главу в PDF") }
-            if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
+                FamilyShare.shareText(context, "Рецепты ${person.name}", text,
+                    recipes.firstOrNull { r -> r.photos.isNotEmpty() }?.photos?.firstOrNull())
+            }) { Text("Отправить родне") }
         }
         Action("Изменить историю и фотографии", edit)
         var confirm by remember { mutableStateOf(false) }
@@ -99,6 +88,7 @@ fun PersonEditScreen(existing: Person?, back: () -> Unit, save: (Person) -> Unit
         TextBox(relation, { relation = it }, "Кем приходится: бабушка, мама…")
         TextBox(years, { years = it }, "Годы жизни — если хочется указать")
         TextBox(story, { story = it }, "Воспоминания и заметки", 4)
+        QuoteSuggestions(dish = name, onPick = { frame -> story = frame + story })
         Action("Сохранить", {
             submitted = true
             save((existing ?: Person(name = name)).copy(name = name.trim(),
@@ -125,7 +115,8 @@ fun MomentsScreen(moments: List<FamilyMoment>, back: () -> Unit,
 
 @Composable
 fun MomentEditScreen(existing: FamilyMoment?, back: () -> Unit,
-                     save: (FamilyMoment) -> Unit, delete: () -> Unit) {
+                     save: (FamilyMoment) -> Unit, delete: () -> Unit,
+                     tags: List<String> = emptyList()) {
     val context = LocalContext.current
     val draftKey = if (existing == null) "moment-new" else "moment-edit-${existing.id}"
     val draft = remember(draftKey) { Drafts.load(context, draftKey) }
@@ -134,26 +125,32 @@ fun MomentEditScreen(existing: FamilyMoment?, back: () -> Unit,
     var story by remember(draftKey) { mutableStateOf(base.story) }
     var people by remember(draftKey) { mutableStateOf(base.people) }
     var photos by remember(draftKey) { mutableStateOf(base.photos) }
+    var eventTag by remember(draftKey) { mutableStateOf(base.eventTag) }
     var submitted by remember { mutableStateOf(false) }
-    LaunchedEffect(draftKey, title, story, people, photos) {
+    LaunchedEffect(draftKey, title, story, people, photos, eventTag) {
         if (submitted) { Drafts.clear(context, draftKey); return@LaunchedEffect }
-        val empty = title.isBlank() && story.isBlank() && people.isBlank() && photos.isEmpty()
+        val empty = title.isBlank() && story.isBlank() && people.isBlank() && photos.isEmpty() && eventTag.isBlank()
         if (empty) Drafts.clear(context, draftKey)
         else Drafts.save(context, draftKey,
-            base.copy(title = title, story = story, people = people, photos = photos).toJson())
+            base.copy(title = title, story = story, people = people, photos = photos, eventTag = eventTag).toJson())
     }
     Page(if (existing == null) "Семья за столом" else "Фотоистория", back) {
         if (draft != null) Text("Черновик восстановлен — продолжайте с того места, где остановились.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         PhotoEditor(photos, { photos = it }, "Фото семьи и готового блюда")
-        TextBox(title, { title = it }, "Название события")
+        TextBox(title, { title = it }, "Название фотоистории")
         TextBox(story, { story = it }, "Что происходило за столом?", 3)
         TextBox(people, { people = it }, "Кто на фотографиях?")
+        EventTagField(eventTag, { eventTag = it }, tags.filter { it != eventTag })
+        Text("Тег события собирает эту историю вместе с блюдами того же праздника.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text("Снимки останутся в семейном архиве. Вы сможете включить их в книгу отдельно от рецептов.")
         Action("Сохранить фотоисторию", {
             submitted = true
             save((existing ?: FamilyMoment(title = title)).copy(
-                title = title.trim(), story = story, people = people, photos = photos))
+                title = title.trim(), story = story, people = people, photos = photos,
+                eventTag = eventTag.trim()))
             Drafts.clear(context, draftKey)
         }, title.isNotBlank())
         if (existing != null) TextButton(onClick = delete) { Text("Удалить фотоисторию") }

@@ -4,6 +4,7 @@ import ru.vkusdetstva.data.FamilyMoment
 import ru.vkusdetstva.data.Person
 import ru.vkusdetstva.data.Recipe
 import ru.vkusdetstva.data.RecipeVersion
+import ru.vkusdetstva.util.MemoryQuotes
 import java.util.Calendar
 
 data class Chapter(val title: String, val subtitle: String, val recipes: List<Recipe>)
@@ -33,7 +34,8 @@ object BookComposer {
             pages += BookPage.ChapterOpener(index + 1, chapter.title, chapter.subtitle)
             chapter.recipes.forEach { recipe ->
                 pages += BookPage.RecipeSpread(
-                    recipe, people.find { it.id == recipe.personId },
+                    withQuote(recipe, people.find { it.id == recipe.personId }, authorName, options),
+                    people.find { it.id == recipe.personId },
                     versions.filter { it.recipeId == recipe.id }.sortedBy { it.createdAt },
                     chapter.title
                 )
@@ -41,11 +43,16 @@ object BookComposer {
         }
 
         if (options.includePeople && people.isNotEmpty()) {
-            toc += TocEntry("Люди нашей книги", 0, "people")
-            val sorted = people.sortedWith(
-                compareByDescending<Person> { counts[it.id] ?: 0 }.thenBy { it.name }
-            )
-            sorted.chunked(2).forEach { pages += BookPage.PeoplePage(it, counts) }
+            // Про кого ещё нет рецептов — пускаем в книгу только по выбору автора.
+            val shown = if (options.includePeopleWithoutRecipes) people
+                else people.filter { (counts[it.id] ?: 0) > 0 }
+            if (shown.isNotEmpty()) {
+                toc += TocEntry("Люди нашей книги", 0, "people")
+                val sorted = shown.sortedWith(
+                    compareByDescending<Person> { counts[it.id] ?: 0 }.thenBy { it.name }
+                )
+                sorted.chunked(2).forEach { pages += BookPage.PeoplePage(it, counts) }
+            }
         }
 
         if (options.includeMoments && moments.isNotEmpty()) {
@@ -108,6 +115,19 @@ object BookComposer {
         ?: recipes.firstOrNull { it.photos.isNotEmpty() }?.photos?.first()
         ?: moments.firstOrNull { it.photos.isNotEmpty() }?.photos?.first()
         ?: people.firstOrNull { it.photos.isNotEmpty() }?.photos?.first()
+
+    /**
+     * Если у блюда нет своей истории — вставляем эмоциональную цитату-рамку
+     * с подписью того, от кого рецепт. Так на развороте всегда есть живой текст.
+     */
+    fun withQuote(recipe: Recipe, person: Person?, authorName: String?, options: BookOptions): Recipe {
+        if (recipe.story.isNotBlank() || !options.showQuotes) return recipe
+        val signature = person?.let {
+            if (it.relation.isNotBlank()) "${it.relation} ${it.name}" else it.name
+        } ?: authorName?.takeIf { name -> name.isNotBlank() } ?: "Ваша семья"
+        return recipe.copy(story = MemoryQuotes.frame(recipe.title, signature,
+            MemoryQuotes.seedFor(recipe.id, recipe.title)))
+    }
 
     private fun chapterIf(title: String, subtitle: String, recipes: List<Recipe>): Chapter? =
         if (recipes.isEmpty()) null else Chapter(title, subtitle, recipes)

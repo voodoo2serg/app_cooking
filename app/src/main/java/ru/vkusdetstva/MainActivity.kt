@@ -75,24 +75,23 @@ private fun FamilyApp(vm: FamilyViewModel, darkTheme: Boolean, setDarkTheme: (Bo
     val moments by vm.moments.collectAsStateWithLifecycle()
     val events by vm.events.collectAsStateWithLifecycle()
     val author by vm.author.collectAsStateWithLifecycle()
+    val basket by vm.basket.collectAsStateWithLifecycle()
     var route by rememberSaveable { mutableStateOf("home") }
     var selectedRecipe by rememberSaveable { mutableLongStateOf(0L) }
     var selectedPerson by rememberSaveable { mutableLongStateOf(0L) }
     var selectedMoment by rememberSaveable { mutableLongStateOf(0L) }
-    var selectedEvent by rememberSaveable { mutableLongStateOf(0L) }
     var pantryIngredient by rememberSaveable { mutableStateOf<String?>(null) }
     var importDraft by rememberSaveable(stateSaver = RecipeDraftSaver) { mutableStateOf<Recipe?>(null) }
     val selected = recipes.find { it.id == selectedRecipe }
     val person = people.find { it.id == selectedPerson }
     val moment = moments.find { it.id == selectedMoment }
-    val event = events.find { it.id == selectedEvent }
-    val go: (String) -> Unit = { if (it == "shopping") selectedEvent = 0L; route = it }
+    val go: (String) -> Unit = { route = it }
     val back: () -> Unit = { route = "home" }
+    val knownTags = (recipes.map { it.eventTag } + moments.map { it.eventTag }).filter { it.isNotBlank() }.distinct().sorted()
     BackHandler(route != "home") { route = when (route) {
         "recipe-edit", "version" -> if (selectedRecipe != 0L) "recipe" else "home"
         "person-edit" -> if (selectedPerson != 0L) "person" else "home"
         "moment-edit" -> "moments"
-        "event-edit" -> "events"
         "author-edit" -> if (author != null) "author" else "settings"
         "author" -> "settings"
         else -> "home"
@@ -117,10 +116,11 @@ private fun FamilyApp(vm: FamilyViewModel, darkTheme: Boolean, setDarkTheme: (Bo
         "recipe" -> if (selected != null) RecipeScreen(selected, people.find { it.id == selected.personId }, author,
             versions.filter { it.recipeId == selected.id }, back,
             { go("recipe-edit") }, { go("version") }, { vm.save(selected.copy(timesCooked = selected.timesCooked + 1)) },
-            { updated -> vm.save(updated) }, { vm.delete(selected, back) }) else HomeScreen(recipes, people,
+            { updated -> vm.save(updated) }, { vm.delete(selected, back) },
+            { vm.addToBasket(listOf(selected)) }) else HomeScreen(recipes, people,
                 { selectedRecipe = 0L; importDraft = null; go("recipe-edit") }, go, { selectedRecipe = it; go("recipe") })
         "recipe-edit" -> RecipeEditScreen(selected ?: importDraft, people, back,
-            { vm.save(it) { route = "recipes" }; importDraft = null })
+            { vm.save(it) { route = "recipes" }; importDraft = null }, knownTags)
         "version" -> if (selected != null) VersionEditScreen(selected, { route = "recipe" }) { vm.save(it) { route = "recipe" } }
         "people" -> PeopleScreen(people, back, { selectedPerson = it; go("person") },
             { selectedPerson = 0L; go("person-edit") })
@@ -132,17 +132,19 @@ private fun FamilyApp(vm: FamilyViewModel, darkTheme: Boolean, setDarkTheme: (Bo
         "moments" -> MomentsScreen(moments, back, { selectedMoment = it; go("moment-edit") },
             { selectedMoment = 0L; go("moment-edit") })
         "moment-edit" -> MomentEditScreen(moment, back, { vm.save(it) { route = "moments" } },
-            { if (moment != null) vm.delete(moment) { route = "moments" } })
+            { if (moment != null) vm.delete(moment) { route = "moments" } }, knownTags)
         "pantry" -> PantryScreen(recipes, back, { selectedRecipe = it; go("recipe") }, pantryIngredient)
 
-        "shopping" -> ShoppingListScreen(recipes, back, event?.recipeIds.orEmpty())
-        "events" -> EventsScreen(events, recipes, back,
-            { selectedEvent = it; go("event-edit") }, { selectedEvent = 0L; go("event-edit") },
-            { selectedEvent = it; go("shopping") })
-        "event-edit" -> EventEditScreen(event, recipes, { go("events") },
-            { vm.save(it) { route = "events" } }, { if (event != null) vm.delete(event) { route = "events" } })
+        "basket" -> BasketScreen(basket, recipes, back,
+            { vm.toggleBasketItem(it) }, { vm.removeBasketItem(it) },
+            { vm.addToBasket(it) }, { vm.addBasketItem(it) },
+            { vm.clearCheckedBasket() }, { vm.clearBasket() })
+        "events" -> EventsScreen(recipes, moments, back,
+            { selectedRecipe = it; go("recipe") }, { selectedMoment = it; go("moment-edit") },
+            { vm.addTagToBasket(it) })
         "feed" -> FamilyFeedScreen(recipes, moments, people, author, back,
-            { selectedRecipe = it; go("recipe") }, { vm.likeRecipe(it) }, { vm.likeMoment(it) })
+            { selectedRecipe = it; go("recipe") }, { id, delta -> vm.likeRecipe(id, delta) },
+            { id, delta -> vm.likeMoment(id, delta) })
         "book" -> BookWizard(people, recipes, versions, moments, author?.name.orEmpty(), back)
         "import" -> ImportScreen({ go("home") }, { go("settings") }) { draft, photoPaths ->
             importDraft = Recipe(title = draft.title, story = draft.story,

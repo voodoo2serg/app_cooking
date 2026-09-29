@@ -23,6 +23,8 @@ interface FamilyDao {
     @Query("SELECT * FROM moments ORDER BY createdAt DESC") fun moments(): Flow<List<FamilyMoment>>
     @Query("SELECT * FROM events ORDER BY createdAt DESC") fun events(): Flow<List<FamilyEvent>>
     @Query("SELECT * FROM events") suspend fun eventsSnapshot(): List<FamilyEvent>
+    @Query("SELECT * FROM recipes") suspend fun recipesSnapshot(): List<Recipe>
+    @Query("SELECT * FROM moments") suspend fun momentsSnapshot(): List<FamilyMoment>
     @Query("SELECT * FROM author WHERE id = 1") fun author(): Flow<AuthorProfile?>
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun addPerson(person: Person): Long
     @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun addRecipe(recipe: Recipe): Long
@@ -47,12 +49,20 @@ interface FamilyDao {
     @Query("DELETE FROM events") suspend fun clearEvents()
     @Query("DELETE FROM author") suspend fun clearAuthor()
     @Query("UPDATE recipes SET personId = NULL WHERE personId = :personId") suspend fun unlinkPerson(personId: Long)
-    @Query("UPDATE recipes SET likes = likes + 1 WHERE id = :id") suspend fun likeRecipe(id: Long)
-    @Query("UPDATE moments SET likes = likes + 1 WHERE id = :id") suspend fun likeMoment(id: Long)
+    @Query("UPDATE recipes SET likes = MAX(0, likes + :delta) WHERE id = :id") suspend fun likeRecipe(id: Long, delta: Int)
+    @Query("UPDATE moments SET likes = MAX(0, likes + :delta) WHERE id = :id") suspend fun likeMoment(id: Long, delta: Int)
+
+    @Query("SELECT * FROM basket_items ORDER BY checked, createdAt") fun basket(): Flow<List<BasketItem>>
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun addBasketItems(items: List<BasketItem>)
+    @Insert(onConflict = OnConflictStrategy.IGNORE) suspend fun addBasketItem(item: BasketItem)
+    @Update suspend fun updateBasketItem(item: BasketItem)
+    @Query("DELETE FROM basket_items WHERE id = :id") suspend fun deleteBasketItem(id: Long)
+    @Query("DELETE FROM basket_items WHERE checked = 1") suspend fun clearCheckedBasket()
+    @Query("DELETE FROM basket_items") suspend fun clearBasket()
 }
 
 @Database(entities = [Person::class, Recipe::class, RecipeVersion::class, FamilyMoment::class,
-    FamilyEvent::class, AuthorProfile::class], version = 4, exportSchema = false)
+    FamilyEvent::class, AuthorProfile::class, BasketItem::class], version = 5, exportSchema = false)
 @TypeConverters(PhotoConverter::class, IdConverter::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun dao(): FamilyDao
@@ -76,10 +86,21 @@ abstract class AppDatabase : RoomDatabase() {
                     "`photos` TEXT NOT NULL, `createdAt` INTEGER NOT NULL)")
             }
         }
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Событие перестаёт быть отдельной сущностью и становится тегом
+                // у блюда или фотоистории; корзина — новая таблица.
+                db.execSQL("ALTER TABLE recipes ADD COLUMN eventTag TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE moments ADD COLUMN eventTag TEXT NOT NULL DEFAULT ''")
+                db.execSQL("CREATE TABLE IF NOT EXISTS `basket_items` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`text` TEXT NOT NULL, `amount` TEXT NOT NULL, `section` TEXT NOT NULL, " +
+                    "`source` TEXT NOT NULL, `checked` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL)")
+            }
+        }
         @Volatile private var instance: AppDatabase? = null
         fun get(context: Context): AppDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "family-recipes.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build().also { instance = it }
         }
     }

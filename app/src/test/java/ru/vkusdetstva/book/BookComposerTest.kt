@@ -109,4 +109,41 @@ class BookComposerTest {
         val pages = model.pages.map { it::class }
         assertTrue(BookPage.Lined::class !in pages)
     }
+
+    @Test
+    fun `people without recipes are excluded when option is off`() {
+        val people = listOf(Person(id = 1, name = "Анна"), Person(id = 2, name = "Пётр"))
+        val recipes = listOf(recipe(1, "Пирог", personId = 1))
+        val model = BookComposer.compose(people, recipes, emptyList(), emptyList(),
+            options.copy(includePeople = true, includePeopleWithoutRecipes = false))
+        val peoplePages = model.pages.filterIsInstance<BookPage.PeoplePage>()
+        val names = peoplePages.flatMap { it.persons }.map { it.name }
+        assertTrue("Анна" in names)
+        assertTrue("Пётр" !in names)
+    }
+
+    @Test
+    fun `quote frame fills blank story with signature`() {
+        val person = Person(id = 1, name = "Настя", relation = "внучка")
+        val spread = BookComposer.compose(
+            listOf(person), listOf(recipe(1, "Пирожки", personId = 1)), emptyList(), emptyList(), options
+        ).pages.filterIsInstance<BookPage.RecipeSpread>().single()
+        assertTrue(spread.recipe.story.contains("«Пирожки»"))
+        assertTrue(spread.recipe.story.contains("внучка Настя"))
+    }
+
+    @Test
+    fun `own story wins over quote frame`() {
+        val recipes = listOf(recipe(1, "Пирожки").copy(story = "Своя история"))
+        val spread = BookComposer.compose(emptyList(), recipes, emptyList(), emptyList(), options)
+            .pages.filterIsInstance<BookPage.RecipeSpread>().single()
+        assertEquals("Своя история", spread.recipe.story)
+    }
+
+    @Test
+    fun `quotes can be disabled`() {
+        val spread = BookComposer.compose(emptyList(), listOf(recipe(1, "Каша")), emptyList(), emptyList(),
+            options.copy(showQuotes = false)).pages.filterIsInstance<BookPage.RecipeSpread>().single()
+        assertEquals("", spread.recipe.story)
+    }
 }
