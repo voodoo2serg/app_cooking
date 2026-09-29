@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import androidx.core.content.FileProvider
 import ru.vkusdetstva.util.LocalMedia
+import ru.vkusdetstva.util.MemoryQuotes
 import java.io.File
 import java.util.UUID
 
@@ -117,6 +118,24 @@ fun Section(title: String) {
     Spacer(Modifier.height(13.dp))
     Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.secondary)
     Spacer(Modifier.height(6.dp))
+}
+
+/**
+ * Готовые эмоциональные «рамки» для истории блюда: если своих слов нет,
+ * автор берёт тезис, дописывает и подписывает — «Любимая внучка Настя».
+ */
+@Composable
+fun QuoteSuggestions(dish: String, onPick: (String) -> Unit) {
+    var seed by remember { mutableIntStateOf(0) }
+    Section("Рамка для истории · готовые тезисы")
+    Text("Не получается написать про блюдо? Возьмите готовый тезис, допишите и подпишите — например: «Любимая внучка Настя».",
+        style = MaterialTheme.typography.bodySmall)
+    MemoryQuotes.suggestions(dish.ifBlank { "Это блюдо" }, 3, seed).forEach { quote ->
+        TextButton(onClick = { onPick(quote + "\n\n— ") }) {
+            Text(quote, maxLines = 2, modifier = Modifier.fillMaxWidth())
+        }
+    }
+    TextButton(onClick = { seed += 3 }) { Text("Показать другие") }
 }
 
 @Composable

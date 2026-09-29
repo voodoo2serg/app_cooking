@@ -2,18 +2,19 @@ package ru.vkusdetstva.util
 
 import android.content.Context
 import android.content.Intent
-
 import androidx.core.content.FileProvider
-import ru.vkusdetstva.data.RecipeVersion
-import ru.vkusdetstva.util.book.BookComposer
-import ru.vkusdetstva.util.book.BookOptions
-import ru.vkusdetstva.util.book.BookRenderer
-import java.io.File
 import ru.vkusdetstva.data.AuthorProfile
 import ru.vkusdetstva.data.Person
 import ru.vkusdetstva.data.Recipe
+import java.io.File
 
+/**
+ * «Отправить родне» — простой текст, который уходит письмом или в соцсети
+ * через системное меню «Поделиться». Никакой генерации PDF: документ нужен
+ * только для полноценной электронной книги в мастере сборки.
+ */
 object FamilyShare {
+
     fun recipeText(recipe: Recipe, person: Person?, author: AuthorProfile?): String = buildString {
         append(recipe.title); append("\n")
         val by = person?.name ?: author?.name
@@ -25,36 +26,30 @@ object FamilyShare {
         append("\nИз семейного архива «Вкус детства»")
     }
 
-    fun shareText(context: Context, subject: String, text: String) {
-        context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, subject)
-            putExtra(Intent.EXTRA_TEXT, text)
-        }, "Отправить родне"))
-    }
-
-    /** Export only the selected recipes; leave the full book export separate. */
-    fun createPdf(context: Context, title: String, recipes: List<Recipe>, people: List<Person>,
-                  versions: List<RecipeVersion>, author: AuthorProfile?): android.net.Uri {
-        require(recipes.isNotEmpty())
-        val folder = File(context.cacheDir, "exports").apply { mkdirs() }
-        val file = File.createTempFile("family-share-", ".pdf", folder)
-        return try {
-            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-            val options = BookOptions(title = title, includePeople = false, includeMoments = false,
-                includeLined = false)
-            val model = BookComposer.compose(people, recipes, versions, emptyList(), options, author?.name)
-            BookRenderer.render(context, model, uri, booklet = false)
-            uri
-        } catch (e: Exception) { file.delete(); throw e }
-    }
-
-    fun sharePdf(context: Context, title: String, uri: android.net.Uri) {
-        context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
-            type = "application/pdf"
-            putExtra(Intent.EXTRA_SUBJECT, title)
-            putExtra(Intent.EXTRA_STREAM, uri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }, "Отправить родне"))
+    /**
+     * Делится текстом через любое приложение: почта, мессенджер, соцсеть.
+     * Если у рецепта есть фото — прикладываем его: мессенджеры покажут снимок
+     * вместе с текстом, почта вложением.
+     */
+    fun shareText(context: Context, subject: String, text: String, photoPath: String? = null) {
+        val photo = photoPath?.let(::File)?.takeIf { it.isFile }
+        val intent = if (photo != null) {
+            val uri = runCatching {
+                FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", photo)
+            }.getOrNull()
+            Intent(Intent.ACTION_SEND).apply {
+                type = "image/*"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                putExtra(Intent.EXTRA_TEXT, text)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+        } else {
+            Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, subject)
+                putExtra(Intent.EXTRA_TEXT, text)
+            }
+        }
+        context.startActivity(Intent.createChooser(intent, "Отправить родне"))
     }
 }

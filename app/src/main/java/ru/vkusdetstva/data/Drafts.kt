@@ -47,6 +47,7 @@ fun Recipe.toJson(): JSONObject = JSONObject()
     .put("notes", notes)
     .put("photos", JSONArray(photos))
     .put("audioPath", audioPath.orEmpty())
+    .put("eventTag", eventTag)
 
 fun recipeFromJson(o: JSONObject): Recipe = Recipe(
     title = o.optString("title"),
@@ -56,7 +57,8 @@ fun recipeFromJson(o: JSONObject): Recipe = Recipe(
     steps = o.optString("steps"),
     notes = o.optString("notes"),
     photos = o.stringList(),
-    audioPath = o.optString("audioPath").takeIf { it.isNotEmpty() }
+    audioPath = o.optString("audioPath").takeIf { it.isNotEmpty() },
+    eventTag = o.optString("eventTag")
 )
 
 fun Person.toJson(): JSONObject = JSONObject()
@@ -76,10 +78,12 @@ fun authorFromJson(o: JSONObject): AuthorProfile = AuthorProfile(
 
 fun FamilyMoment.toJson(): JSONObject = JSONObject()
     .put("title", title).put("story", story).put("people", people).put("photos", JSONArray(photos))
+    .put("eventTag", eventTag)
 
 fun momentFromJson(o: JSONObject): FamilyMoment = FamilyMoment(
     title = o.optString("title"), story = o.optString("story"),
-    people = o.optString("people"), photos = o.stringList())
+    people = o.optString("people"), photos = o.stringList(),
+    eventTag = o.optString("eventTag"))
 
 fun FamilyEvent.toJson(): JSONObject = JSONObject()
     .put("title", title).put("story", story)

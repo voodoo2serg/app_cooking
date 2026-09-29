@@ -31,7 +31,9 @@ data class Recipe(
     val ease: Int = 0,
     val memory: Int = 0,
     val createdAt: Long = System.currentTimeMillis(),
-    val likes: Int = 0
+    val likes: Int = 0,
+    /** Событие-тег: «Новый год», «Пасха», «дача». Пустая строка — тега нет. */
+    val eventTag: String = ""
 )
 
 /** Единственная строка (id = 1) — владелец книги. Рецепты без personId выходят от его лица. */
@@ -63,7 +65,9 @@ data class FamilyMoment(
     val people: String = "",
     val photos: List<String> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
-    val likes: Int = 0
+    val likes: Int = 0,
+    /** Событие-тег, к которому прикреплена фотоистория. */
+    val eventTag: String = ""
 )
 
 /** A table for an occasion. Dish photos stay with recipes; celebration photos live here. */
@@ -74,6 +78,22 @@ data class FamilyEvent(
     val story: String = "",
     val recipeIds: List<Long> = emptyList(),
     val photos: List<String> = emptyList(),
+    val createdAt: Long = System.currentTimeMillis()
+)
+
+/**
+ * Позиция в корзине покупок. Позиции собираются из ингредиентов выбранных
+ * рецептов и событий-тегов либо добавляются вручную; чек-бокс отмечает
+ * «уже есть дома / уже куплено».
+ */
+@Entity(tableName = "basket_items")
+data class BasketItem(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val text: String,
+    val amount: String = "",
+    val section: String = "Другое",
+    val source: String = "",
+    val checked: Boolean = false,
     val createdAt: Long = System.currentTimeMillis()
 )
 

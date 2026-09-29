@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android Auto Backup (до Android 11). В облако Google-аккаунта уходят база
+  рецептов и черновики ввода: при переустановке приложения они возвращаются.
+  Фотографии не включаем — квота Auto Backup всего 25 МБ, и большие фото
+  сорвали бы весь бэкап; для полной копии служит ZIP-архив из настроек.
+-->
+<full-backup-content>
+    <include domain="database" path="family-recipes.db" />
+    <include domain="database" path="family-recipes.db-wal" />
+    <include domain="database" path="family-recipes.db-shm" />
+    <include domain="sharedpref" path="drafts.xml" />
+    <include domain="sharedpref" path="settings.xml" />
+</full-backup-content>

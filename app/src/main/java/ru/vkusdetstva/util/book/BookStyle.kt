@@ -123,29 +123,21 @@ internal object BookStyle {
         }
     }
 
-    /** Домик с трубой и сердцем-дымком — фирменный знак. */
+    /** Фирменный знак: конёк крыши изгибается в сердце; крыша-сердце нависает над домом. */
     fun drawHouse(canvas: Canvas, cx: Float, cy: Float, scale: Float, color: Int) {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }
         val roof = Path().apply {
-            moveTo(cx - 15f * scale, cy - 6f * scale)
-            lineTo(cx + 15f * scale, cy - 6f * scale)
-            lineTo(cx, cy - 18f * scale)
+            moveTo(cx - 30f * scale, cy - 5f * scale)
+            cubicTo(cx - 31.5f * scale, cy - 9f * scale, cx - 32f * scale, cy - 14f * scale, cx - 32f * scale, cy - 19f * scale)
+            cubicTo(cx - 32f * scale, cy - 30f * scale, cx - 25f * scale, cy - 37f * scale, cx - 16f * scale, cy - 37f * scale)
+            cubicTo(cx - 10.5f * scale, cy - 37f * scale, cx - 5f * scale, cy - 34.2f * scale, cx, cy - 30f * scale)
+            cubicTo(cx + 5f * scale, cy - 34.2f * scale, cx + 10.5f * scale, cy - 37f * scale, cx + 16f * scale, cy - 37f * scale)
+            cubicTo(cx + 25f * scale, cy - 37f * scale, cx + 32f * scale, cy - 30f * scale, cx + 32f * scale, cy - 19f * scale)
+            cubicTo(cx + 32f * scale, cy - 14f * scale, cx + 31.5f * scale, cy - 9f * scale, cx + 30f * scale, cy - 5f * scale)
             close()
         }
         canvas.drawPath(roof, paint)
-        canvas.drawRect(cx - 13f * scale, cy - 6f * scale, cx + 13f * scale, cy + 14f * scale, paint)
-        canvas.drawRect(cx + 6f * scale, cy - 15f * scale, cx + 11f * scale, cy - 8f * scale, paint)
-        val hy = cy - 24f * scale
-        val r = 2.4f * scale
-        canvas.drawCircle(cx - r * 0.95f, hy, r, paint)
-        canvas.drawCircle(cx + r * 0.95f, hy, r, paint)
-        val tri = Path().apply {
-            moveTo(cx - r * 1.9f, hy + r * 0.2f)
-            lineTo(cx + r * 1.9f, hy + r * 0.2f)
-            lineTo(cx, hy + r * 2.3f)
-            close()
-        }
-        canvas.drawPath(tri, paint)
+        canvas.drawRect(cx - 26f * scale, cy - 5f * scale, cx + 26f * scale, cy + 37f * scale, paint)
     }
 
     fun drawOrnament(canvas: Canvas, fromX: Float, toX: Float, y: Float, color: Int) {
@@ -198,7 +190,7 @@ internal object BookStyle {
     fun placeholder(canvas: Canvas, l: Float, t: Float, r: Float, b: Float, accent: Int) {
         val frame = Paint().apply { style = Paint.Style.STROKE; strokeWidth = 1f; color = LINE }
         canvas.drawRect(l, t, r, b, frame)
-        drawHouse(canvas, (l + r) / 2, (t + b) / 2 - 6f, minOf(r - l, b - t) / 64f, accent)
+        drawHouse(canvas, (l + r) / 2, (t + b) / 2, minOf(r - l, b - t) / 110f, accent)
     }
 
     fun fill(canvas: Canvas, color: Int) {

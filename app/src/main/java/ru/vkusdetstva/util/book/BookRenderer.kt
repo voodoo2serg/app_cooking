@@ -53,7 +53,9 @@ object BookRenderer {
     }
 
     /**
-     * Рендер книги в PDF. booklet = false — обычные страницы A5 по порядку;
+     * Рендер книги в PDF.
+     * booklet = false — страницы выбранного формата (A5/A4/A3) по порядку;
+     *   альбомный вид — одна PDF-страница = целый разворот (две страницы рядом);
      * booklet = true — тетрадная раскладка на A4-альбомных листах для печати «пополам».
      */
     fun render(context: Context, model: BookModel, target: Uri, booklet: Boolean,
@@ -79,10 +81,43 @@ object BookRenderer {
                     done++
                     onProgress(done, sheets.size * 2)
                 }
-            } else {
-                phys.forEachIndexed { index, _ ->
-                    val page = doc.startPage(info(420, 595, index + 1))
+            } else if (model.options.orientation == Orientation.ALBUM) {
+                // Альбомный лист того же формата: разворот = две базовые страницы A5 рядом.
+                val sheetW = model.options.pageSize.h
+                val sheetH = model.options.pageSize.w
+                val scale = minOf(sheetW / (BookStyle.PAGE_W * 2), sheetH / BookStyle.PAGE_H)
+                val dx = (sheetW - BookStyle.PAGE_W * 2 * scale) / 2f
+                val dy = (sheetH - BookStyle.PAGE_H * scale) / 2f
+                var index = 0
+                var number = 1
+                val total = (phys.size + 1) / 2
+                while (index < phys.size) {
+                    val page = doc.startPage(info(sheetW.toInt(), sheetH.toInt(), number))
+                    page.canvas.save()
+                    page.canvas.translate(dx, dy)
+                    page.canvas.scale(scale, scale)
                     drawInto(page.canvas, phys, index, model)
+                    drawInto(page.canvas, phys, index + 1, model, BookStyle.PAGE_W)
+                    page.canvas.restore()
+                    doc.finishPage(page)
+                    index += 2
+                    number++
+                    onProgress(number, total)
+                }
+            } else {
+                // Вёрстка сделана под базовый A5; A-серия имеет те же пропорции,
+                // поэтому на A4/A3 рисуем тот же макет с масштабом и центрированием.
+                val fmt = model.options.pageSize
+                val scale = minOf(fmt.w / BookStyle.PAGE_W, fmt.h / BookStyle.PAGE_H)
+                val dx = (fmt.w - BookStyle.PAGE_W * scale) / 2f
+                val dy = (fmt.h - BookStyle.PAGE_H * scale) / 2f
+                phys.forEachIndexed { index, _ ->
+                    val page = doc.startPage(info(fmt.w.toInt(), fmt.h.toInt(), index + 1))
+                    page.canvas.save()
+                    page.canvas.translate(dx, dy)
+                    page.canvas.scale(scale, scale)
+                    drawPage(page.canvas, phys, index, phys[index], model)
+                    page.canvas.restore()
                     doc.finishPage(page)
                     onProgress(index + 1, phys.size)
                 }

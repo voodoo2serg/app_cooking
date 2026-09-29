@@ -91,8 +91,8 @@ fun FamilyBottomBar(route: String, navigate: (String) -> Unit) {
         Triple("home", "Главная", R.drawable.ic_brand_mark),
         Triple("search", "Поиск", R.drawable.ic_nav_search),
         Triple("recipe-edit", "Добавить", R.drawable.ic_nav_add),
-        Triple("book", "Книга", R.drawable.ic_nav_book),
-        Triple("settings", "Настройки", R.drawable.ic_nav_settings)
+        Triple("feed", "Лента", R.drawable.ic_nav_feed),
+        Triple("basket", "Корзина", R.drawable.ic_nav_basket)
     )
     NavigationBar(containerColor = MaterialTheme.colorScheme.surface,
         tonalElevation = 2.dp, modifier = Modifier.height(72.dp)) {

@@ -28,7 +28,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-fun RecipeEditScreen(existing: Recipe?, people: List<Person>, back: () -> Unit, save: (Recipe) -> Unit) {
+fun RecipeEditScreen(existing: Recipe?, people: List<Person>, back: () -> Unit, save: (Recipe) -> Unit,
+                     tags: List<String> = emptyList()) {
     val context = LocalContext.current
     // Черновик живёт на диске: поворот экрана, звонок и даже перезапуск приложения
     // не теряют ни слова. Ключ различает новый рецепт, черновик после импорта
@@ -43,6 +44,7 @@ fun RecipeEditScreen(existing: Recipe?, people: List<Person>, back: () -> Unit, 
     var title by remember(draftKey) { mutableStateOf(base.title) }
     var personId by remember(draftKey) { mutableStateOf(base.personId) }
     var story by remember(draftKey) { mutableStateOf(base.story) }
+    var eventTag by remember(draftKey) { mutableStateOf(base.eventTag) }
     val ingredientLines = remember(draftKey) {
         mutableStateListOf<IngredientLine>().apply { addAll(parseIngredientLines(base.ingredients)) }
     }
@@ -59,14 +61,14 @@ fun RecipeEditScreen(existing: Recipe?, people: List<Person>, back: () -> Unit, 
     }
     // Автосохранение: каждое изменение тут же пишется на диск; пустая форма — черновик стирается;
     // после успешного сохранения submitted запрещает «воскрешение» черновика.
-    LaunchedEffect(draftKey, title, personId, story, steps, notes, photos, audioPath, ingredientLines.toList()) {
+    LaunchedEffect(draftKey, title, personId, story, steps, notes, photos, audioPath, eventTag, ingredientLines.toList()) {
         if (submitted) { Drafts.clear(context, draftKey); return@LaunchedEffect }
         val empty = title.isBlank() && story.isBlank() && steps.isBlank() && notes.isBlank() &&
-            ingredientLines.isEmpty() && photos.isEmpty() && audioPath == null
+            ingredientLines.isEmpty() && photos.isEmpty() && audioPath == null && eventTag.isBlank()
         if (empty) Drafts.clear(context, draftKey)
         else Drafts.save(context, draftKey, base.copy(title = title, personId = personId, story = story,
             ingredients = formatIngredientLines(ingredientLines), steps = steps, notes = notes,
-            photos = photos, audioPath = audioPath).toJson())
+            photos = photos, audioPath = audioPath, eventTag = eventTag).toJson())
     }
     Page(if (existing == null) "Новый семейный рецепт" else "Изменить рецепт", back) {
         if (draft != null) Text("Черновик восстановлен — продолжайте с того места, где остановились.",
@@ -85,6 +87,11 @@ fun RecipeEditScreen(existing: Recipe?, people: List<Person>, back: () -> Unit, 
             }
         }
         TextBox(story, { story = it }, "История блюда", 3)
+        QuoteSuggestions(dish = title, onPick = { frame -> story = frame + story })
+        EventTagField(eventTag, { eventTag = it }, tags.filter { it != eventTag })
+        Text("Событие — это тег: всё, что отмечено одинаково, соберётся в разделе «События».",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
         Section("Ингредиенты")
         RecipeIngredientEditor(ingredientLines)
         TextBox(steps, { steps = it }, "Шаги приготовления: каждый с новой строки", 4)
@@ -106,7 +113,7 @@ fun RecipeEditScreen(existing: Recipe?, people: List<Person>, back: () -> Unit, 
             submitted = true
             save((existing ?: Recipe(title = title)).copy(title = title.trim(), personId = personId,
                 story = story, ingredients = formatIngredientLines(ingredientLines), steps = steps, notes = notes,
-                photos = photos, audioPath = audioPath))
+                photos = photos, audioPath = audioPath, eventTag = eventTag.trim()))
             Drafts.clear(context, draftKey) }, title.isNotBlank())
         Spacer(Modifier.height(24.dp))
     }
@@ -116,14 +123,12 @@ fun RecipeEditScreen(existing: Recipe?, people: List<Person>, back: () -> Unit, 
 fun RecipeScreen(recipe: Recipe, person: Person?, bookAuthor: AuthorProfile? = null,
                  versions: List<RecipeVersion> = emptyList(), back: () -> Unit = {},
                  edit: () -> Unit = {}, addVersion: () -> Unit = {}, cooked: () -> Unit = {},
-                 update: (Recipe) -> Unit = {}, delete: () -> Unit = {}) {
+                 update: (Recipe) -> Unit = {}, delete: () -> Unit = {},
+                 toBasket: () -> Unit = {}) {
     val context = LocalContext.current
     val audio = remember { AudioNote(context) }
     val scope = rememberCoroutineScope()
-    val shareScope = rememberCoroutineScope()
     val feedClient = remember { RemoteFamilyFeedClient(context.applicationContext) }
-    var sharing by remember { mutableStateOf(false) }
-    var shareError by remember { mutableStateOf("") }
     var feedStatus by remember(recipe.id) { mutableStateOf("") }
     DisposableEffect(audio) { onDispose { audio.release() } }
     var notes by remember(recipe.id) { mutableStateOf(recipe.notes) }
@@ -151,20 +156,14 @@ fun RecipeScreen(recipe: Recipe, person: Person?, bookAuthor: AuthorProfile? = n
         Section("Приготовление")
         Text(recipe.steps.ifBlank { "Пока не добавлены" })
         Section("Отправка родне")
+        Text("Простой текст с фото — уходит письмом или в соцсети через меню «Поделиться».",
+            style = MaterialTheme.typography.bodySmall)
         OutlinedButton(onClick = { FamilyShare.shareText(context, recipe.title,
-            FamilyShare.recipeText(recipe, person, bookAuthor)) }) { Text("Отправить рецепт текстом") }
-        OutlinedButton(onClick = {
-            scope.launch {
-                sharing = true; shareError = ""
-                val result = runCatching { withContext(Dispatchers.IO) {
-                    FamilyShare.createPdf(context, recipe.title, listOf(recipe), listOfNotNull(person), versions, bookAuthor)
-                } }
-                sharing = false
-                result.fold({ FamilyShare.sharePdf(context, recipe.title, it) },
-                    { shareError = "Не удалось создать PDF: ${it.message}" })
-            }
-        }, enabled = !sharing) { Text(if (sharing) "Собираем PDF…" else "Отправить рецепт в PDF") }
-        if (shareError.isNotBlank()) Text(shareError, color = MaterialTheme.colorScheme.error)
+            FamilyShare.recipeText(recipe, person, bookAuthor), recipe.photos.firstOrNull()) }) {
+            Text("Отправить родне")
+        }
+        Section("Корзина")
+        OutlinedButton(onClick = toBasket) { Text("Ингредиенты этого блюда — в корзину") }
         Section("Оценки семьи · от 1 до 5")
         Rating("Легендарный вкус", taste, { taste = it }, { update(recipe.copy(taste = taste.toInt())) })
         Rating("Простота приготовления", ease, { ease = it }, { update(recipe.copy(ease = ease.toInt())) })
@@ -176,26 +175,10 @@ fun RecipeScreen(recipe: Recipe, person: Person?, bookAuthor: AuthorProfile? = n
             Section("Голосовая заметка")
             OutlinedButton(onClick = { runCatching { audio.play(recipe.audioPath) } }) { Text("▶ Слушать") }
         }
-        OutlinedButton(onClick = {
-            scope.launch {
-                sharing = true; shareError = ""
-                val result = runCatching { withContext(Dispatchers.IO) {
-                    FamilyShare.createPdf(context, recipe.title, listOf(recipe), listOfNotNull(person),
-                        versions.filter { it.recipeId == recipe.id }, bookAuthor)
-                } }
-                sharing = false
-                result.fold({ FamilyShare.sharePdf(context, recipe.title, it) },
-                    { shareError = "Не удалось создать PDF: ${it.message}" })
-            }
-        }, modifier = Modifier.fillMaxWidth()) {
-            Text(if (sharing) "Готовим PDF…" else "Отправить родне · PDF")
-        }
-        if (shareError.isNotBlank()) Text(shareError, color = MaterialTheme.colorScheme.error,
-            style = MaterialTheme.typography.bodySmall)
         if (feedClient.configured()) {
             OutlinedButton(onClick = {
                 val authorName = person?.name ?: bookAuthor?.name?.takeIf { it.isNotBlank() } ?: "Семья"
-                shareScope.launch {
+                scope.launch {
                     feedStatus = "Публикуем…"
                     feedStatus = runCatching {
                         withContext(Dispatchers.IO) { feedClient.publish(recipe, authorName) }
