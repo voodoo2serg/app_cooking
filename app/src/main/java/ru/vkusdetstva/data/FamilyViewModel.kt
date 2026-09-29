@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.File
 
 class FamilyViewModel(app: Application) : AndroidViewModel(app) {
     private val dao = AppDatabase.get(app).dao()
@@ -28,12 +29,20 @@ class FamilyViewModel(app: Application) : AndroidViewModel(app) {
         done()
     }
     fun delete(recipe: Recipe, done: () -> Unit = {}) = viewModelScope.launch {
-        dao.deleteVersions(recipe.id); dao.deleteRecipe(recipe); done()
+        dao.deleteVersions(recipe.id)
+        dao.deleteRecipe(recipe)
+        recipe.photos.forEach { runCatching { File(it).delete() } }
+        recipe.audioPath?.let { path -> runCatching { File(path).delete() } }
+        done()
     }
     fun delete(person: Person, done: () -> Unit = {}) = viewModelScope.launch {
-        dao.deletePerson(person); done()
+        dao.deletePerson(person)
+        person.photos.forEach { runCatching { File(it).delete() } }
+        done()
     }
     fun delete(moment: FamilyMoment, done: () -> Unit = {}) = viewModelScope.launch {
-        dao.deleteMoment(moment); done()
+        dao.deleteMoment(moment)
+        moment.photos.forEach { runCatching { File(it).delete() } }
+        done()
     }
 }

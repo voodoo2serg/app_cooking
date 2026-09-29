@@ -24,8 +24,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import androidx.core.content.FileProvider
 import ru.vkusdetstva.util.LocalMedia
 import java.io.File
+import java.util.UUID
 
 @Composable
 fun Page(title: String, back: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
@@ -62,8 +64,11 @@ fun PhotoEditor(paths: List<String>, onChange: (List<String>) -> Unit, label: St
         val copied = uris.mapNotNull { runCatching { LocalMedia.copy(context, it) }.getOrNull() }
         if (copied.isNotEmpty()) onChange(paths + copied)
     }
-    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
-        if (bitmap != null) onChange(paths + LocalMedia.save(context, bitmap))
+    var pendingCameraPath by remember { mutableStateOf<String?>(null) }
+    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { saved ->
+        val path = pendingCameraPath
+        pendingCameraPath = null
+        if (saved && path != null) onChange(paths + path)
     }
     Text(label, style = MaterialTheme.typography.titleSmall)
     if (paths.isNotEmpty()) {
@@ -80,7 +85,15 @@ fun PhotoEditor(paths: List<String>, onChange: (List<String>) -> Unit, label: St
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }) { Text("+ Фото") }
-        OutlinedButton(onClick = { camera.launch(null) }) { Text("Снять") }
+        OutlinedButton(onClick = {
+            val folder = File(context.filesDir, "photos").apply { mkdirs() }
+            val file = File(folder, "${UUID.randomUUID()}.jpg")
+            pendingCameraPath = file.absolutePath
+            runCatching {
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                camera.launch(uri)
+            }.onFailure { pendingCameraPath = null }
+        }) { Text("Снять") }
     }
 }
 
