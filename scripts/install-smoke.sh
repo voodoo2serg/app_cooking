@@ -61,10 +61,13 @@ if [ -z "$rect" ]; then
     echo 'Theme switch not found on the settings screen.' >&2
     exit 1
 fi
-x1=$(echo "$rect" | cut -d, -f1 | tr -d '[')
-y1=$(echo "$rect" | cut -d, -f2)
-x2=$(echo "$rect" | cut -d, -f3 | tr -d '][')
-y2=$(echo "$rect" | cut -d, -f4 | tr -d ']')
+coords=$(echo "$rect" | sed -E 's/^\[([0-9]+),([0-9]+)\]\[([0-9]+),([0-9]+)\]$/\1 \2 \3 \4/')
+read -r x1 y1 x2 y2 <<EOF
+$coords
+EOF
+case "$x1 $y1 $x2 $y2" in
+    *[!0-9\ ]*) echo "Invalid switch bounds: $rect" >&2; exit 1 ;;
+esac
 adb shell input tap $(( (x1 + x2) / 2 )) $(( (y1 + y2) / 2 ))
 sleep 2
 adb shell screencap -p /sdcard/vkus-dark.png
