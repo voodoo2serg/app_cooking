@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -36,6 +37,7 @@ class MainActivity : ComponentActivity() {
             VkusTheme(darkTheme = darkTheme) {
                 val scheme = MaterialTheme.colorScheme
                 SideEffect {
+                    window.decorView.setBackgroundColor(scheme.background.toArgb())
                     window.statusBarColor = scheme.background.toArgb()
                     window.navigationBarColor = scheme.background.toArgb()
                     WindowCompat.getInsetsController(window, window.decorView)
@@ -77,7 +79,7 @@ private fun FamilyApp(vm: FamilyViewModel, darkTheme: Boolean, setDarkTheme: (Bo
         else -> "home"
     } }
 
-    Scaffold(modifier = Modifier.fillMaxSize().safeDrawingPadding(),
+    Scaffold(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).safeDrawingPadding(),
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = { if (route == "home") BrandHeader() },
         bottomBar = { FamilyBottomBar(route) { destination ->
