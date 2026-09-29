@@ -18,6 +18,7 @@ import ru.vkusdetstva.data.Person
 import ru.vkusdetstva.data.Recipe
 import ru.vkusdetstva.data.RecipeVersion
 import ru.vkusdetstva.util.FamilyArchive
+import ru.vkusdetstva.util.importers.ImportEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -26,7 +27,8 @@ import kotlinx.coroutines.withContext
 fun SettingsScreen(back: () -> Unit, people: List<Person>, recipes: List<Recipe>,
                    versions: List<RecipeVersion>, moments: List<FamilyMoment>,
                    author: AuthorProfile? = null, darkTheme: Boolean = false,
-                   onDarkThemeChange: (Boolean) -> Unit = {}, openAuthor: () -> Unit = {}) {
+                   onDarkThemeChange: (Boolean) -> Unit = {}, openAuthor: () -> Unit = {},
+                   openImport: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("settings", 0) }
@@ -75,6 +77,41 @@ fun SettingsScreen(back: () -> Unit, people: List<Person>, recipes: List<Recipe>
             }
             Switch(checked = darkTheme, onCheckedChange = onDarkThemeChange)
         }
+        Section("Импорт рецептов из фото")
+        Text("Сфотографируйте страницу книги — рецепт распознается и ляжет в форму черновиком. Нужен API-ключ выбранного сервиса, он хранится только на устройстве.",
+            style = MaterialTheme.typography.bodySmall)
+        Spacer(Modifier.height(8.dp))
+        var engine by remember {
+            mutableStateOf(ImportEngine.byId(prefs.getString("import_engine", null)))
+        }
+        var importModel by remember {
+            mutableStateOf(prefs.getString("import_model", null) ?: engine.defaultModel)
+        }
+        var importKey by remember { mutableStateOf(prefs.getString("import_api_key", "").orEmpty()) }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ImportEngine.entries.forEach { option ->
+                FilterChip(selected = engine == option, onClick = {
+                    val previous = engine
+                    engine = option
+                    if (importModel.isBlank() || importModel == previous.defaultModel) {
+                        importModel = option.defaultModel
+                    }
+                    prefs.edit().putString("import_engine", option.name).apply()
+                }, label = { Text(option.label, maxLines = 1) })
+            }
+        }
+        TextBox(importModel, {
+            importModel = it
+            prefs.edit().putString("import_model", it).apply()
+        }, "Название модели (например, ${engine.defaultModel})")
+        TextBox(importKey, {
+            importKey = it
+            prefs.edit().putString("import_api_key", it.trim()).apply()
+        }, "API-ключ — хранится только на устройстве")
+        Text("Бесплатный ключ Gemini: aistudio.google.com/app/apikey. Ключ OpenAI: platform.openai.com/api-keys.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Action("Открыть импорт из фото", openImport)
         Section("Ваша семья")
         TextBox(familyName, { familyName = it; prefs.edit().putString("family_name", it).apply() }, "Название семейного архива")
         TextBox(bookTitle, { bookTitle = it; prefs.edit().putString("book_title", it).apply() }, "Название книги по умолчанию")
