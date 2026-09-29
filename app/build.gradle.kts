@@ -14,8 +14,8 @@ android {
         applicationId = "ru.vkusdetstva"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "0.4.0"
+        versionCode = 5
+        versionName = "0.5.0"
     }
     // Один общий ключ подписи для debug- и release-сборок: тогда APK, собранный
     // локально и в CI, ставится поверх установленного приложения как обновление.
@@ -59,4 +59,5 @@ dependencies {
     kapt("androidx.room:room-compiler:2.7.1")
     implementation("io.coil-kt:coil-compose:2.7.0")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
 }
