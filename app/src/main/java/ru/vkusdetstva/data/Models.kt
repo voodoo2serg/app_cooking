@@ -52,8 +52,7 @@ data class RecipeVersion(
     val change: String,
     val note: String = "",
     val photos: List<String> = emptyList(),
-    val createdAt: Long = System.currentTimeMillis(),
-    val likes: Int = 0
+    val createdAt: Long = System.currentTimeMillis()
 )
 
 @Entity(tableName = "moments")
@@ -63,7 +62,8 @@ data class FamilyMoment(
     val story: String = "",
     val people: String = "",
     val photos: List<String> = emptyList(),
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val likes: Int = 0
 )
 
 class PhotoConverter {
