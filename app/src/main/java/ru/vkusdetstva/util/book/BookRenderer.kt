@@ -157,12 +157,11 @@ object BookRenderer {
                 is BookPage.BackCover -> phys += Phys.BackP
             }
         }
-        val backIndex = phys.indexOfLast { it is Phys.BackP }
-        val need = (4 - phys.size % 4) % 4
-        repeat(need) { phys.add(backIndex, Phys.LinedP) }
-
         val tocSource = model.pages.filterIsInstance<BookPage.Toc>().first().entries
         val tocPageCount = max(1, ceil(tocSource.size / 32.0).toInt())
+        val backIndex = phys.indexOfLast { it is Phys.BackP }
+        val need = (4 - (phys.size + tocPageCount) % 4) % 4
+        repeat(need) { phys.add(backIndex, Phys.LinedP) }
         val numbers = mutableMapOf<String, Int>()
         var firstPeople = true
         var firstMoment = true
@@ -260,7 +259,7 @@ object BookRenderer {
         var consumedSteps = 0
         var partNo = 0
         val maxParts = 8
-        while (!remainder.done() && partNo < maxParts) {
+        while ((partNo == 0 || !remainder.done()) && partNo < maxParts) {
             partNo++
             var storyChunk = ""
             var ingChunk: List<String> = emptyList()

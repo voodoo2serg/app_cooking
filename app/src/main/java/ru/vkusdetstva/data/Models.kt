@@ -30,7 +30,8 @@ data class Recipe(
     val taste: Int = 0,
     val ease: Int = 0,
     val memory: Int = 0,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val likes: Int = 0
 )
 
 /** Единственная строка (id = 1) — владелец книги. Рецепты без personId выходят от его лица. */
@@ -61,8 +62,28 @@ data class FamilyMoment(
     val story: String = "",
     val people: String = "",
     val photos: List<String> = emptyList(),
+    val createdAt: Long = System.currentTimeMillis(),
+    val likes: Int = 0
+)
+
+/** A table for an occasion. Dish photos stay with recipes; celebration photos live here. */
+@Entity(tableName = "events")
+data class FamilyEvent(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val title: String,
+    val story: String = "",
+    val recipeIds: List<Long> = emptyList(),
+    val photos: List<String> = emptyList(),
     val createdAt: Long = System.currentTimeMillis()
 )
+
+class IdConverter {
+    @TypeConverter fun fromList(value: List<Long>): String = JSONArray(value).toString()
+    @TypeConverter fun toList(value: String): List<Long> {
+        val array = JSONArray(value)
+        return (0 until array.length()).map(array::getLong)
+    }
+}
 
 class PhotoConverter {
     @TypeConverter fun fromList(value: List<String>): String = JSONArray(value).toString()

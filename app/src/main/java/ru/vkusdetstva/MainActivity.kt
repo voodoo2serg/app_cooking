@@ -23,6 +23,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import ru.vkusdetstva.data.*
 import ru.vkusdetstva.ui.*
 import kotlinx.coroutines.delay
+import ru.vkusdetstva.util.BookReadinessCalculator
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -63,22 +64,29 @@ private fun FamilyApp(vm: FamilyViewModel, darkTheme: Boolean, setDarkTheme: (Bo
     val recipes by vm.recipes.collectAsStateWithLifecycle()
     val versions by vm.versions.collectAsStateWithLifecycle()
     val moments by vm.moments.collectAsStateWithLifecycle()
+    val events by vm.events.collectAsStateWithLifecycle()
     val author by vm.author.collectAsStateWithLifecycle()
+    val readiness = remember(recipes, people, moments, author) {
+        BookReadinessCalculator.calculate(recipes, people, moments, author)
+    }
     var route by rememberSaveable { mutableStateOf("home") }
     var selectedRecipe by rememberSaveable { mutableLongStateOf(0L) }
     var selectedPerson by rememberSaveable { mutableLongStateOf(0L) }
     var selectedMoment by rememberSaveable { mutableLongStateOf(0L) }
+    var selectedEvent by rememberSaveable { mutableLongStateOf(0L) }
     var pantryIngredient by rememberSaveable { mutableStateOf<String?>(null) }
     var importDraft by remember { mutableStateOf<Recipe?>(null) }
     val selected = recipes.find { it.id == selectedRecipe }
     val person = people.find { it.id == selectedPerson }
     val moment = moments.find { it.id == selectedMoment }
-    val go: (String) -> Unit = { route = it }
+    val event = events.find { it.id == selectedEvent }
+    val go: (String) -> Unit = { if (it == "shopping") selectedEvent = 0L; route = it }
     val back: () -> Unit = { route = "home" }
     BackHandler(route != "home") { route = when (route) {
         "recipe-edit", "version" -> if (selectedRecipe != 0L) "recipe" else "home"
         "person-edit" -> if (selectedPerson != 0L) "person" else "home"
         "moment-edit" -> "moments"
+        "event-edit" -> "events"
         "author-edit" -> if (author != null) "author" else "settings"
         "author" -> "settings"
         else -> "home"
@@ -94,7 +102,7 @@ private fun FamilyApp(vm: FamilyViewModel, darkTheme: Boolean, setDarkTheme: (Bo
     androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().padding(innerPadding)) {
     when (route) {
         "home" -> HomeScreen(recipes, people, { selectedRecipe = 0L; importDraft = null; go("recipe-edit") }, go,
-            { selectedRecipe = it; go("recipe") }, author?.name.orEmpty())
+            { selectedRecipe = it; go("recipe") }, author?.name.orEmpty(), readiness)
         "recipes" -> RecipeListScreen(recipes, people, back, { selectedRecipe = it; go("recipe") },
             { selectedRecipe = 0L; importDraft = null; go("recipe-edit") }, author?.name.orEmpty())
         "search" -> SearchScreen(recipes, people, back,
@@ -111,7 +119,8 @@ private fun FamilyApp(vm: FamilyViewModel, darkTheme: Boolean, setDarkTheme: (Bo
         "people" -> PeopleScreen(people, back, { selectedPerson = it; go("person") },
             { selectedPerson = 0L; go("person-edit") })
         "person" -> if (person != null) PersonScreen(person, recipes.filter { it.personId == person.id }, back,
-            { go("person-edit") }, { selectedRecipe = it; go("recipe") }, { vm.delete(person, back) }) else HomeScreen(recipes, people,
+            { go("person-edit") }, { selectedRecipe = it; go("recipe") }, { vm.delete(person, back) },
+            versions, author) else HomeScreen(recipes, people,
                 { selectedRecipe = 0L; importDraft = null; go("recipe-edit") }, go, { selectedRecipe = it; go("recipe") })
         "person-edit" -> PersonEditScreen(person, back) { vm.save(it) { route = "people" } }
         "moments" -> MomentsScreen(moments, back, { selectedMoment = it; go("moment-edit") },
@@ -119,6 +128,14 @@ private fun FamilyApp(vm: FamilyViewModel, darkTheme: Boolean, setDarkTheme: (Bo
         "moment-edit" -> MomentEditScreen(moment, back, { vm.save(it) { route = "moments" } },
             { if (moment != null) vm.delete(moment) { route = "moments" } })
         "pantry" -> PantryScreen(recipes, back, { selectedRecipe = it; go("recipe") }, pantryIngredient)
+        "shopping" -> ShoppingListScreen(recipes, back, event?.recipeIds.orEmpty())
+        "events" -> EventsScreen(events, recipes, back,
+            { selectedEvent = it; go("event-edit") }, { selectedEvent = 0L; go("event-edit") },
+            { selectedEvent = it; go("shopping") })
+        "event-edit" -> EventEditScreen(event, recipes, { go("events") },
+            { vm.save(it) { route = "events" } }, { if (event != null) vm.delete(event) { route = "events" } })
+        "feed" -> FamilyFeedScreen(recipes, moments, people, author, back,
+            { selectedRecipe = it; go("recipe") }, { vm.likeRecipe(it) }, { vm.likeMoment(it) })
         "book" -> BookWizard(people, recipes, versions, moments, author?.name.orEmpty(), back)
         "import" -> ImportScreen({ go("home") }, { go("settings") }) { draft, photoPaths ->
             importDraft = Recipe(title = draft.title, story = draft.story,
@@ -137,7 +154,7 @@ private fun FamilyApp(vm: FamilyViewModel, darkTheme: Boolean, setDarkTheme: (Bo
         "author-edit" -> AuthorEditScreen(author, { route = if (author != null) "author" else "settings" }) {
             vm.saveAuthor(it) { route = "author" }
         }
-        "settings" -> SettingsScreen(back, people, recipes, versions, moments, author, darkTheme, setDarkTheme,
+        "settings" -> SettingsScreen(back, people, recipes, versions, moments, events, author, darkTheme, setDarkTheme,
             { go("author") }, { go("import") })
     }
     }

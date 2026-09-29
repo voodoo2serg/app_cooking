@@ -9,6 +9,13 @@ import androidx.compose.ui.unit.dp
 import ru.vkusdetstva.data.FamilyMoment
 import ru.vkusdetstva.data.Person
 import ru.vkusdetstva.data.Recipe
+import ru.vkusdetstva.data.RecipeVersion
+import ru.vkusdetstva.data.AuthorProfile
+import ru.vkusdetstva.util.FamilyShare
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun PeopleScreen(people: List<Person>, back: () -> Unit, open: (Long) -> Unit, add: () -> Unit) {
@@ -21,13 +28,33 @@ fun PeopleScreen(people: List<Person>, back: () -> Unit, open: (Long) -> Unit, a
 
 @Composable
 fun PersonScreen(person: Person, recipes: List<Recipe>, back: () -> Unit,
-                 edit: () -> Unit, openRecipe: (Long) -> Unit, delete: () -> Unit) {
+                 edit: () -> Unit, openRecipe: (Long) -> Unit, delete: () -> Unit,
+                 versions: List<RecipeVersion> = emptyList(), author: AuthorProfile? = null) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var sharing by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf("") }
     Page(person.name, back) {
         PhotoCarousel(person.photos, "Фотографии ${person.name}")
         Text(listOf(person.relation, person.years).filter { it.isNotBlank() }.joinToString(" · "))
         if (person.story.isNotBlank()) { Section("Воспоминания"); Text(person.story) }
         Section("Её или его рецепты · ${recipes.size}")
         recipes.forEach { ListTile(it.title, it.story.take(90), { openRecipe(it.id) }) }
+        if (recipes.isNotEmpty()) {
+            OutlinedButton(onClick = {
+                scope.launch {
+                    sharing = true; error = ""
+                    val result = runCatching { withContext(Dispatchers.IO) {
+                        FamilyShare.createPdf(context, "Рецепты ${person.name}", recipes, listOf(person),
+                            versions.filter { v -> recipes.any { it.id == v.recipeId } }, author)
+                    } }
+                    sharing = false
+                    result.fold({ FamilyShare.sharePdf(context, "Рецепты ${person.name}", it) },
+                        { error = "Не удалось создать PDF: ${it.message}" })
+                }
+            }, enabled = !sharing) { Text(if (sharing) "Собираем главу…" else "Отправить главу в PDF") }
+            if (error.isNotBlank()) Text(error, color = MaterialTheme.colorScheme.error)
+        }
         Action("Изменить историю и фотографии", edit)
         var confirm by remember { mutableStateOf(false) }
         TextButton(onClick = { confirm = true }) { Text("Удалить человека") }
