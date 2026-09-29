@@ -117,6 +117,8 @@ private fun FamilyApp(vm: FamilyViewModel, darkTheme: Boolean, setDarkTheme: (Bo
         "moment-edit" -> MomentEditScreen(moment, back, { vm.save(it) { route = "moments" } },
             { if (moment != null) vm.delete(moment) { route = "moments" } })
         "pantry" -> PantryScreen(recipes, back, { selectedRecipe = it; go("recipe") }, pantryIngredient)
+        "feed" -> FamilyFeedScreen(recipes, people, moments, author?.name.orEmpty(), back) { selectedRecipe = it; go("recipe") }
+        "shopping" -> ShoppingListScreen(recipes, back)
         "book" -> BookWizard(people, recipes, versions, moments, author?.name.orEmpty(), back)
         "author" -> {
             val profile = author

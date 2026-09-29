@@ -9,6 +9,8 @@ import androidx.compose.ui.unit.dp
 import ru.vkusdetstva.data.FamilyMoment
 import ru.vkusdetstva.data.Person
 import ru.vkusdetstva.data.Recipe
+import androidx.compose.ui.platform.LocalContext
+import ru.vkusdetstva.util.FamilyShare
 
 @Composable
 fun PeopleScreen(people: List<Person>, back: () -> Unit, open: (Long) -> Unit, add: () -> Unit) {
@@ -22,12 +24,17 @@ fun PeopleScreen(people: List<Person>, back: () -> Unit, open: (Long) -> Unit, a
 @Composable
 fun PersonScreen(person: Person, recipes: List<Recipe>, back: () -> Unit,
                  edit: () -> Unit, openRecipe: (Long) -> Unit, delete: () -> Unit) {
+    val context = LocalContext.current
     Page(person.name, back) {
         PhotoCarousel(person.photos, "Фотографии ${person.name}")
         Text(listOf(person.relation, person.years).filter { it.isNotBlank() }.joinToString(" · "))
         if (person.story.isNotBlank()) { Section("Воспоминания"); Text(person.story) }
         Section("Её или его рецепты · ${recipes.size}")
         recipes.forEach { ListTile(it.title, it.story.take(90), { openRecipe(it.id) }) }
+        if (recipes.isNotEmpty()) {
+            OutlinedButton(onClick = { FamilyShare.sharePersonChapterPdf(context, person, recipes) },
+                modifier = Modifier.fillMaxWidth()) { Text("Отправить родне · глава PDF") }
+        }
         Action("Изменить историю и фотографии", edit)
         var confirm by remember { mutableStateOf(false) }
         TextButton(onClick = { confirm = true }) { Text("Удалить человека") }

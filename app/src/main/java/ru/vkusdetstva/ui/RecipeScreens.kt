@@ -16,6 +16,11 @@ import ru.vkusdetstva.data.Person
 import ru.vkusdetstva.data.Recipe
 import ru.vkusdetstva.data.RecipeVersion
 import ru.vkusdetstva.util.AudioNote
+import ru.vkusdetstva.util.FamilyShare
+import ru.vkusdetstva.feed.RemoteFamilyFeedClient
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun RecipeEditScreen(existing: Recipe?, people: List<Person>, back: () -> Unit, save: (Recipe) -> Unit) {
@@ -83,6 +88,9 @@ fun RecipeScreen(recipe: Recipe, person: Person?, bookAuthor: AuthorProfile? = n
                  update: (Recipe) -> Unit = {}, delete: () -> Unit = {}) {
     val context = LocalContext.current
     val audio = remember { AudioNote(context) }
+    val feedClient = remember { RemoteFamilyFeedClient(context.applicationContext) }
+    val shareScope = rememberCoroutineScope()
+    var feedStatus by remember(recipe.id) { mutableStateOf("") }
     DisposableEffect(audio) { onDispose { audio.release() } }
     var notes by remember(recipe.id) { mutableStateOf(recipe.notes) }
     var taste by remember(recipe.id) { mutableFloatStateOf(recipe.taste.toFloat()) }
@@ -118,6 +126,25 @@ fun RecipeScreen(recipe: Recipe, person: Person?, bookAuthor: AuthorProfile? = n
         if (recipe.audioPath != null) {
             Section("Голосовая заметка")
             OutlinedButton(onClick = { runCatching { audio.play(recipe.audioPath) } }) { Text("▶ Слушать") }
+        }
+        OutlinedButton(onClick = {
+            FamilyShare.shareRecipePdf(
+                context, recipe,
+                person?.name ?: bookAuthor?.name?.takeIf { it.isNotBlank() } ?: "Семейный рецепт"
+            )
+        }, modifier = Modifier.fillMaxWidth()) { Text("Отправить родне · PDF") }
+        if (feedClient.configured()) {
+            OutlinedButton(onClick = {
+                val authorName = person?.name ?: bookAuthor?.name?.takeIf { it.isNotBlank() } ?: "Семья"
+                shareScope.launch {
+                    feedStatus = "Публикуем…"
+                    feedStatus = runCatching {
+                        withContext(Dispatchers.IO) { feedClient.publish(recipe, authorName) }
+                        "Опубликовано в общей семейной ленте"
+                    }.getOrElse { "Ошибка: ${it.message}" }
+                }
+            }, modifier = Modifier.fillMaxWidth()) { Text("Опубликовать в семейной ленте") }
+            if (feedStatus.isNotBlank()) Text(feedStatus, style = MaterialTheme.typography.bodySmall)
         }
         Action("Изменить рецепт и фото", edit)
         var confirm by remember { mutableStateOf(false) }

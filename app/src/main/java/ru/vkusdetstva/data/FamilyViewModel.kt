@@ -40,6 +40,7 @@ class FamilyViewModel(app: Application) : AndroidViewModel(app) {
         done()
     }
     fun delete(person: Person, done: () -> Unit = {}) = viewModelScope.launch {
+        dao.detachRecipes(person.id)
         dao.deletePerson(person)
         person.photos.forEach { runCatching { File(it).delete() } }
         done()

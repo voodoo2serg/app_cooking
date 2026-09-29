@@ -29,6 +29,28 @@ fun HomeScreen(recipes: List<Recipe>, people: List<Person>, add: () -> Unit,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(16.dp))
+        val readiness = BookReadiness.calculate(recipes, people, authorName)
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth().clickable { go("book") }) {
+            Column(Modifier.fillMaxWidth().padding(18.dp)) {
+                Text("ВАША КНИГА ГОТОВА НА ${readiness.percent}%",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer)
+                Spacer(Modifier.height(8.dp))
+                LinearProgressIndicator(progress = { readiness.percent / 100f }, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(8.dp))
+                Text("≈ ${readiness.estimatedPages} страниц · ${recipes.size} рецептов · ${people.size} героев семейного стола",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer)
+                readiness.hints.firstOrNull()?.let {
+                    Spacer(Modifier.height(6.dp))
+                    Text(it, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer)
+                }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
             shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.fillMaxWidth().padding(20.dp)) {
@@ -66,6 +88,8 @@ fun HomeScreen(recipes: List<Recipe>, people: List<Person>, add: () -> Unit,
             TextButton(onClick = { go("people") }) { Text("Все люди →") }
         }
         Section("Продолжить историю")
+        ListTile("Семейная лента", "Лучшие рецепты и застолья в одном месте · простое сердечко") { go("feed") }
+        ListTile("Список покупок", "Выберите блюда — соберём понятный список для магазина") { go("shopping") }
         ListTile("Подбор по ингредиентам", "Выберите продукты из разделов и найдите подходящее блюдо") { go("pantry") }
         ListTile("Как мы это едим", "Фотографии семьи за столом и воспоминания") { go("moments") }
         ListTile("Собрать семейную книгу", "Выберите рецепты и проверьте связи с людьми") { go("book") }

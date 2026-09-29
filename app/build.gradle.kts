@@ -12,8 +12,8 @@ android {
         applicationId = "ru.vkusdetstva"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 4
+        versionName = "0.4.0"
     }
     buildTypes { release { isMinifyEnabled = false } }
     compileOptions {
@@ -39,5 +39,6 @@ dependencies {
     implementation("androidx.room:room-ktx:2.7.1")
     kapt("androidx.room:room-compiler:2.7.1")
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("com.android.billingclient:billing:9.1.0")
     testImplementation("junit:junit:4.13.2")
 }

@@ -1,5 +1,7 @@
 package ru.vkusdetstva.ui
 
+import android.app.Activity
+import android.content.ContextWrapper
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
@@ -30,6 +32,7 @@ import ru.vkusdetstva.data.Person
 import ru.vkusdetstva.data.Recipe
 import ru.vkusdetstva.data.RecipeVersion
 import ru.vkusdetstva.util.book.*
+import ru.vkusdetstva.billing.DigitalBookBilling
 import org.json.JSONObject
 import java.io.File
 
@@ -41,7 +44,8 @@ private val coverColors = linkedMapOf(
 private fun loadBookOptions(context: android.content.Context): BookOptions {
     val mainPrefs = context.getSharedPreferences("settings", 0)
     val family = mainPrefs.getString("family_name", null)?.takeIf { it.isNotBlank() } ?: "Моя семья"
-    val base = BookOptions(familyName = family)
+    val defaultTitle = mainPrefs.getString("book_title", null)?.takeIf { it.isNotBlank() } ?: "Фамильные рецепты"
+    val base = BookOptions(title = defaultTitle, familyName = family)
     val raw = context.getSharedPreferences("book_options", 0).getString("json", null) ?: return base
     return runCatching {
         val o = JSONObject(raw)
@@ -100,6 +104,11 @@ fun BookWizard(people: List<Person>, recipes: List<Recipe>, versions: List<Recip
     var progress by remember { mutableStateOf(0f) }
     var lastPdf by remember { mutableStateOf<Uri?>(null) }
     var preview by remember { mutableStateOf<Bitmap?>(null) }
+    val billing = remember { DigitalBookBilling(context.applicationContext) }
+    val billingState by billing.state.collectAsState()
+    DisposableEffect(billing) { onDispose { billing.close() } }
+    val debugBuild = (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+    val canExport = debugBuild || billingState.unlocked
 
     val update: (BookOptions) -> Unit = {
         options = it
@@ -238,14 +247,24 @@ fun BookWizard(people: List<Person>, recipes: List<Recipe>, versions: List<Recip
                 style = MaterialTheme.typography.bodySmall)
         }
 
-        Section("Печать")
-        Text("Обычный PDF — страницы по порядку: для чтения, типографии или печати через драйвер принтера. " +
-            "Вариант для печати — альбомные листы A4 с двумя страницами: печатайте, сложите стопку пополам " +
-            "и скрепите скрепкой по центру — получится книга.", style = MaterialTheme.typography.bodySmall)
+        Section("Электронная книга")
+        Text("Соберите красивый PDF для хранения в семейном архиве и отправки родным.",
+            style = MaterialTheme.typography.bodySmall)
         Spacer(Modifier.height(10.dp))
-        Action("Сохранить обычный PDF", { savePdf.launch(fileName(false)) }, recipes.isNotEmpty() && !busy)
-        OutlinedButton(onClick = { saveBooklet.launch(fileName(true)) }, enabled = recipes.isNotEmpty() && !busy,
-            modifier = Modifier.fillMaxWidth()) { Text("Сохранить вариант для печати (A4 пополам)") }
+        if (!canExport) {
+            Text("Предпросмотр книги бесплатный. Полный PDF открывается разовой покупкой — без подписки.",
+                style = MaterialTheme.typography.bodySmall)
+            Button(onClick = { context.findActivity()?.let { billing.launchPurchase(it) } },
+                enabled = billingState.productAvailable && !busy,
+                modifier = Modifier.fillMaxWidth()) {
+                Text(if (billingState.price.isNotBlank()) "Открыть полный PDF · ${billingState.price}"
+                    else if (billingState.productAvailable) "Открыть полный PDF"
+                    else "Экспорт скоро будет доступен")
+            }
+            if (billingState.message.isNotBlank()) Text(billingState.message, style = MaterialTheme.typography.bodySmall)
+        }
+        Action("Сохранить электронную книгу PDF", { savePdf.launch(fileName(false)) },
+            recipes.isNotEmpty() && !busy && canExport)
         if (lastPdf != null && !busy) {
             OutlinedButton(onClick = {
                 runCatching {
@@ -320,4 +339,11 @@ private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Un
         Text(label, Modifier.weight(1f))
         Switch(checked = checked, onCheckedChange = onChange)
     }
+}
+
+
+private tailrec fun android.content.Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
