@@ -18,15 +18,15 @@
 
 ## Сборка
 
-Откройте папку проекта в Android Studio (с JDK 17, Android SDK 35 и Gradle 8.11.1), дождитесь Gradle Sync и выберите **Build → Build APK(s)**. Альтернатива с установленным Gradle 8.11.1: `gradle :app:assembleDebug`. Результат: `app/build/outputs/apk/debug/app-debug.apk`.
+Откройте папку проекта в Android Studio (с JDK 17, Android SDK 35 и Gradle 8.11.1) или запустите `gradle :app:assembleDebug`. Результат: `app/build/outputs/apk/debug/app-debug.apk`. Это временная тестовая сборка; в разных CI-запусках debug-сертификат может меняться. Для сохранения возможности обновления без удаления приложения требуется постоянный закрытый ключ подписи в защищённых секретах CI. Ключ и пароль нельзя добавлять в репозиторий.
 
 На Ubuntu x86_64 сервере с JDK 17, `curl`, `unzip` и доступом к репозиториям Google/Gradle запустите `bash scripts/build-apk-ubuntu.sh`. Скрипт ставит инструменты в домашнюю папку, показывает лицензии Android SDK, скачивает платформу 35 и собирает debug APK. Эмулятор Android для сборки не нужен.
 
-Другой путь: поместите проект в отдельный GitHub-репозиторий. `.github/workflows/android-apk.yml` запускается вручную во вкладке Actions или при push в `main` и отдаёт APK в артефакте `vkus-detstva-debug-apk` после успешной сборки.
+В GitHub `.github/workflows/android-apk.yml` запускается вручную или при push в `main` и отдаёт APK в артефакте `vkus-detstva-debug-apk`. CI проверяет подпись `apksigner`; отдельный workflow устанавливает APK на чистый эмулятор Android 15 и запускает главный экран.
 
-Для установки через USB: `adb install -r app/build/outputs/apk/debug/app-debug.apk`. Debug APK пригоден для проверки на своём устройстве; для распространения нужен подписанный release APK/AAB, тестирование на устройствах и подготовка страницы приложения.
+Для установки через USB: `adb install -r app/build/outputs/apk/debug/app-debug.apk`. При неудаче эта команда выдаёт точный код `INSTALL_FAILED_*`, который лучше сообщения файлового менеджера. На телефоне откройте **именно файл `.apk`**, а не ZIP-артефакт GitHub. Разрешите установку неизвестных приложений тому приложению, через которое открываете файл (например, «Файлы» или браузеру). Предупреждение Play Protect для стороннего приложения само по себе не означает повреждённый APK; не отключайте защиту глобально. Если установка блокируется, запишите дословный текст предупреждения и код `adb install`.
 
-GitHub Actions успешно собирает отладочный APK на JDK 17 и Android SDK 35. Готовый файл доступен во вкладке **Actions → Android APK → последний успешный запуск → Artifacts**. `gradle-wrapper.properties` фиксирует версию, но стандартного `gradle-wrapper.jar` в проекте нет: для локальной сборки установите Gradle 8.11.1 или создайте обёртку командой `gradle wrapper --gradle-version 8.11.1`.
+Готовый файл доступен во вкладке **Actions → Android APK → последний успешный запуск → Artifacts**. `gradle-wrapper.properties` фиксирует версию, но стандартного `gradle-wrapper.jar` в проекте нет: для локальной сборки установите Gradle 8.11.1 или создайте обёртку командой `gradle wrapper --gradle-version 8.11.1`.
 
 ## Данные и ограничения
 

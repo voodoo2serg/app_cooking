@@ -34,4 +34,5 @@ echo 'Review and accept the Android SDK licenses if prompted:'
 "$sdk_dir/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0' 'platform-tools'
 cd "$project_dir"
 "$gradle_dir/bin/gradle" --no-daemon :app:assembleDebug
+"$sdk_dir/build-tools/35.0.0/apksigner" verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk
 echo "APK: $project_dir/app/build/outputs/apk/debug/app-debug.apk"
