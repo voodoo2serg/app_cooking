@@ -27,20 +27,15 @@ import coil.compose.AsyncImage
 import ru.vkusdetstva.util.LocalMedia
 import java.io.File
 
-val Paper = androidx.compose.ui.graphics.Color(0xFFF9F5ED)
-val Forest = androidx.compose.ui.graphics.Color(0xFF324E3F)
-val Ink = androidx.compose.ui.graphics.Color(0xFF29251E)
-val Cream = androidx.compose.ui.graphics.Color(0xFFFFFDF8)
-
 @Composable
 fun Page(title: String, back: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxSize().background(Paper).padding(horizontal = 18.dp)) {
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(horizontal = BrandDimens.pagePadding)) {
         Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
             if (back != null) TextButton(onClick = back) { Text("← Назад") }
             Spacer(Modifier.weight(1f))
-            Text("ВКУС ДЕТСТВА", style = MaterialTheme.typography.labelSmall, color = Forest)
+            Text("ВКУС ДЕТСТВА", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
         }
-        Text(title, style = MaterialTheme.typography.headlineMedium.copy(fontFamily = FontFamily.Serif), color = Ink)
+        Text(title, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
         Spacer(Modifier.height(12.dp))
         Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()), content = content)
     }
@@ -73,7 +68,7 @@ fun PhotoEditor(paths: List<String>, onChange: (List<String>) -> Unit, label: St
             items(paths) { path ->
                 Box {
                     AsyncImage(File(path), contentDescription = label, contentScale = ContentScale.Crop,
-                        modifier = Modifier.size(136.dp).background(Cream, RoundedCornerShape(12.dp)))
+                        modifier = Modifier.size(136.dp).background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp)))
                     TextButton(onClick = { onChange(paths.filterNot { it == path }) },
                         modifier = Modifier.align(Alignment.TopEnd)) { Text("✕") }
                 }
@@ -104,16 +99,16 @@ fun PhotoCarousel(paths: List<String>, label: String) {
 @Composable
 fun Section(title: String) {
     Spacer(Modifier.height(13.dp))
-    Text(title, style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Serif), color = Forest)
+    Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.secondary)
     Spacer(Modifier.height(6.dp))
 }
 
 @Composable
 fun ListTile(title: String, subtitle: String, onClick: () -> Unit) {
     Card(Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = Cream)) {
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(Modifier.padding(14.dp)) {
-            Text(title, fontWeight = FontWeight.Medium, color = Ink)
+            Text(title, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
             if (subtitle.isNotBlank()) Text(subtitle, style = MaterialTheme.typography.bodySmall)
         }
     }
