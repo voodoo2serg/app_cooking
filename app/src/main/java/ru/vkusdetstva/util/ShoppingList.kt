@@ -1,5 +1,6 @@
 package ru.vkusdetstva.util
 
+import kotlin.math.ceil
 import ru.vkusdetstva.data.Recipe
 import ru.vkusdetstva.ui.IngredientCatalog
 import ru.vkusdetstva.ui.parseIngredientLines
@@ -35,8 +36,33 @@ object ShoppingListBuilder {
             else -> null
         }
         val requested = amounts.joinToString(" + ").ifBlank { "количество не указано" }
-        // Never claim that one pack is sufficient when several recipes may need more.
-        return if (packageName != null) "$packageName (по рецептам: $requested)" else requested
+        val pack = when {
+            "сахар" in n || "мук" in n -> Triple(1000.0, "г", "пакет 1 кг")
+            "яйц" in n -> Triple(10.0, "шт", "десяток")
+            "масл" in n && "сливоч" in n -> Triple(180.0, "г", "пачка 180 г")
+            "молок" in n -> Triple(1000.0, "мл", "упаковка 1 л")
+            else -> null
+        }
+        if (pack != null && amounts.isNotEmpty()) {
+            val parsed = amounts.map { Regex("^(\\d+(?:[.,]\\d+)?)\\s*(кг|г|л|мл|шт)", RegexOption.IGNORE_CASE)
+                .find(it.trim())?.let { match ->
+                    val value = match.groupValues[1].replace(',', '.').toDoubleOrNull() ?: return@let null
+                    val unit = match.groupValues[2].lowercase()
+                    when (unit) {
+                        pack.second -> value
+                        "кг" -> if (pack.second == "г") value * 1000 else null
+                        "л" -> if (pack.second == "мл") value * 1000 else null
+                        else -> null
+                    }
+                }
+            }
+            if (parsed.all { it != null }) {
+                val count = ceil(parsed.filterNotNull().sum() / pack.first).toInt().coerceAtLeast(1)
+                return "$count × ${pack.third} (нужно: $requested)"
+            }
+        }
+        // Unclear units stay visible; a guessed pack count could leave ingredients missing.
+        return if (packageName != null) "упаковками по потребности (нужно: $requested)" else requested
     }
 
     fun asMessage(items: List<ShoppingItem>, title: String = "Список в магазин"): String {
