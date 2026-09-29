@@ -147,11 +147,21 @@ fun RecipeScreen(recipe: Recipe, person: Person?, bookAuthor: AuthorProfile? = n
             OutlinedButton(onClick = { runCatching { audio.play(recipe.audioPath) } }) { Text("▶ Слушать") }
         }
         OutlinedButton(onClick = {
-            FamilyShare.shareRecipePdf(
-                context, recipe,
-                person?.name ?: bookAuthor?.name?.takeIf { it.isNotBlank() } ?: "Семейный рецепт"
-            )
-        }, modifier = Modifier.fillMaxWidth()) { Text("Отправить родне · PDF") }
+            scope.launch {
+                sharing = true; shareError = ""
+                val result = runCatching { withContext(Dispatchers.IO) {
+                    FamilyShare.createPdf(context, recipe.title, listOf(recipe), listOfNotNull(person),
+                        versions.filter { it.recipeId == recipe.id }, bookAuthor)
+                } }
+                sharing = false
+                result.fold({ FamilyShare.sharePdf(context, recipe.title, it) },
+                    { shareError = "Не удалось создать PDF: ${it.message}" })
+            }
+        }, modifier = Modifier.fillMaxWidth()) {
+            Text(if (sharing) "Готовим PDF…" else "Отправить родне · PDF")
+        }
+        if (shareError.isNotBlank()) Text(shareError, color = MaterialTheme.colorScheme.error,
+            style = MaterialTheme.typography.bodySmall)
         if (feedClient.configured()) {
             OutlinedButton(onClick = {
                 val authorName = person?.name ?: bookAuthor?.name?.takeIf { it.isNotBlank() } ?: "Семья"

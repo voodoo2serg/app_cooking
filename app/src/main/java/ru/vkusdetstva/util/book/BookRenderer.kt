@@ -181,9 +181,6 @@ object BookRenderer {
             Phys.TocP(chunk.map { it.copy(page = numbers[it.refKey]) }, i, tocPageCount)
         }
         phys.addAll(2, tocPages)
-        val backIndex = phys.indexOfLast { it is Phys.BackP }
-        val need = (4 - phys.size % 4) % 4
-        repeat(need) { phys.add(backIndex, Phys.LinedP) }
         return phys
     }
 
