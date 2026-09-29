@@ -2,6 +2,7 @@ package ru.vkusdetstva.ui
 
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -9,6 +10,7 @@ import androidx.compose.ui.unit.dp
 import ru.vkusdetstva.data.FamilyMoment
 import ru.vkusdetstva.data.Person
 import ru.vkusdetstva.data.Recipe
+
 import ru.vkusdetstva.data.RecipeVersion
 import ru.vkusdetstva.data.AuthorProfile
 import ru.vkusdetstva.util.FamilyShare
@@ -28,6 +30,7 @@ fun PeopleScreen(people: List<Person>, back: () -> Unit, open: (Long) -> Unit, a
 
 @Composable
 fun PersonScreen(person: Person, recipes: List<Recipe>, back: () -> Unit,
+
                  edit: () -> Unit, openRecipe: (Long) -> Unit, delete: () -> Unit,
                  versions: List<RecipeVersion> = emptyList(), author: AuthorProfile? = null) {
     val context = LocalContext.current
@@ -41,6 +44,7 @@ fun PersonScreen(person: Person, recipes: List<Recipe>, back: () -> Unit,
         Section("Её или его рецепты · ${recipes.size}")
         recipes.forEach { ListTile(it.title, it.story.take(90), { openRecipe(it.id) }) }
         if (recipes.isNotEmpty()) {
+
             OutlinedButton(onClick = {
                 scope.launch {
                     sharing = true; error = ""

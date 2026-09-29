@@ -125,6 +125,7 @@ object FamilyArchive {
             val db = AppDatabase.get(context)
             db.withTransaction {
                 val dao = db.dao()
+
                 dao.clearVersions(); dao.clearRecipes(); dao.clearPeople(); dao.clearMoments(); dao.clearEvents(); dao.clearAuthor()
                 people.forEach { dao.addPerson(it.copy(photos = remap(it.photos))) }
                 recipes.forEach { dao.addRecipe(it.copy(photos = remap(it.photos), audioPath = it.audioPath?.let { path -> remap(listOf(path)).first() })) }

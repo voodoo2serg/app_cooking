@@ -51,6 +51,7 @@ class FamilyViewModel(app: Application) : AndroidViewModel(app) {
         done()
     }
     fun delete(person: Person, done: () -> Unit = {}) = viewModelScope.launch {
+
         AppDatabase.get(getApplication()).withTransaction {
             dao.unlinkPerson(person.id)
             dao.deletePerson(person)

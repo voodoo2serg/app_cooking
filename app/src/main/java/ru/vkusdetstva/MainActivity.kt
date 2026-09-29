@@ -23,7 +23,6 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import ru.vkusdetstva.data.*
 import ru.vkusdetstva.ui.*
 import kotlinx.coroutines.delay
-import ru.vkusdetstva.util.BookReadinessCalculator
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -66,9 +65,6 @@ private fun FamilyApp(vm: FamilyViewModel, darkTheme: Boolean, setDarkTheme: (Bo
     val moments by vm.moments.collectAsStateWithLifecycle()
     val events by vm.events.collectAsStateWithLifecycle()
     val author by vm.author.collectAsStateWithLifecycle()
-    val readiness = remember(recipes, people, moments, author) {
-        BookReadinessCalculator.calculate(recipes, people, moments, author)
-    }
     var route by rememberSaveable { mutableStateOf("home") }
     var selectedRecipe by rememberSaveable { mutableLongStateOf(0L) }
     var selectedPerson by rememberSaveable { mutableLongStateOf(0L) }
@@ -102,7 +98,7 @@ private fun FamilyApp(vm: FamilyViewModel, darkTheme: Boolean, setDarkTheme: (Bo
     androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().padding(innerPadding)) {
     when (route) {
         "home" -> HomeScreen(recipes, people, { selectedRecipe = 0L; importDraft = null; go("recipe-edit") }, go,
-            { selectedRecipe = it; go("recipe") }, author?.name.orEmpty(), readiness)
+            { selectedRecipe = it; go("recipe") }, author?.name.orEmpty())
         "recipes" -> RecipeListScreen(recipes, people, back, { selectedRecipe = it; go("recipe") },
             { selectedRecipe = 0L; importDraft = null; go("recipe-edit") }, author?.name.orEmpty())
         "search" -> SearchScreen(recipes, people, back,
@@ -128,6 +124,7 @@ private fun FamilyApp(vm: FamilyViewModel, darkTheme: Boolean, setDarkTheme: (Bo
         "moment-edit" -> MomentEditScreen(moment, back, { vm.save(it) { route = "moments" } },
             { if (moment != null) vm.delete(moment) { route = "moments" } })
         "pantry" -> PantryScreen(recipes, back, { selectedRecipe = it; go("recipe") }, pantryIngredient)
+
         "shopping" -> ShoppingListScreen(recipes, back, event?.recipeIds.orEmpty())
         "events" -> EventsScreen(events, recipes, back,
             { selectedEvent = it; go("event-edit") }, { selectedEvent = 0L; go("event-edit") },

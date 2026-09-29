@@ -181,6 +181,9 @@ object BookRenderer {
             Phys.TocP(chunk.map { it.copy(page = numbers[it.refKey]) }, i, tocPageCount)
         }
         phys.addAll(2, tocPages)
+        val backIndex = phys.indexOfLast { it is Phys.BackP }
+        val need = (4 - phys.size % 4) % 4
+        repeat(need) { phys.add(backIndex, Phys.LinedP) }
         return phys
     }
 
@@ -259,6 +262,7 @@ object BookRenderer {
         var consumedSteps = 0
         var partNo = 0
         val maxParts = 8
+
         while ((partNo == 0 || !remainder.done()) && partNo < maxParts) {
             partNo++
             var storyChunk = ""

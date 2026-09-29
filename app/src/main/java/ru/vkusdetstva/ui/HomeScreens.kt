@@ -20,19 +20,39 @@ import ru.vkusdetstva.data.Person
 import ru.vkusdetstva.data.Recipe
 import java.io.File
 import org.json.JSONArray
-import ru.vkusdetstva.util.BookReadiness
 import ru.vkusdetstva.util.ShoppingListBuilder
 import ru.vkusdetstva.util.FamilyShare
 
 @Composable
 fun HomeScreen(recipes: List<Recipe>, people: List<Person>, add: () -> Unit,
-               go: (String) -> Unit, openRecipe: (Long) -> Unit, authorName: String = "",
-               readiness: BookReadiness? = null) {
+               go: (String) -> Unit, openRecipe: (Long) -> Unit, authorName: String = "") {
     Page("У каждого блюда — своя история") {
         Text("Сохраняйте рецепты, фотографии и голоса тех, кто собирал семью за одним столом.",
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(16.dp))
+        val readiness = BookReadiness.calculate(recipes, people, authorName)
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier.fillMaxWidth().clickable { go("book") }) {
+            Column(Modifier.fillMaxWidth().padding(18.dp)) {
+                Text("ВАША КНИГА ГОТОВА НА ${readiness.percent}%",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer)
+                Spacer(Modifier.height(8.dp))
+                LinearProgressIndicator(progress = { readiness.percent / 100f }, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(8.dp))
+                Text("≈ ${readiness.estimatedPages} страниц · ${recipes.size} рецептов · ${people.size} героев семейного стола",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer)
+                readiness.hints.firstOrNull()?.let {
+                    Spacer(Modifier.height(6.dp))
+                    Text(it, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer)
+                }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
             shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.fillMaxWidth().padding(20.dp)) {
@@ -47,13 +67,6 @@ fun HomeScreen(recipes: List<Recipe>, people: List<Person>, add: () -> Unit,
                 Spacer(Modifier.height(16.dp))
                 Button(onClick = add, modifier = Modifier.heightIn(min = 48.dp)) { Text("+ Записать рецепт") }
             }
-        }
-        readiness?.let { state ->
-            Section("Ваша книга готова на ${state.percent}%")
-            LinearProgressIndicator(progress = { state.percent / 100f }, modifier = Modifier.fillMaxWidth())
-            Text("${recipes.size} рецептов · ${people.size} близких · ${recipes.sumOf { it.photos.size }} фотографий")
-            state.hints.forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) }
-            TextButton(onClick = { go("book") }) { Text("Посмотреть книгу →") }
         }
         Section("Рецепты · ${recipes.size}")
         if (recipes.isEmpty()) {
@@ -77,6 +90,7 @@ fun HomeScreen(recipes: List<Recipe>, people: List<Person>, add: () -> Unit,
             TextButton(onClick = { go("people") }) { Text("Все люди →") }
         }
         Section("Продолжить историю")
+
         ListTile("Импорт из фото книги", "Распознать рецепт со страницы — печатной или рукописной") { go("import") }
         ListTile("Подбор по ингредиентам", "Выберите продукты из разделов и найдите подходящее блюдо") { go("pantry") }
         ListTile("Как мы это едим", "Фотографии семьи за столом и воспоминания") { go("moments") }

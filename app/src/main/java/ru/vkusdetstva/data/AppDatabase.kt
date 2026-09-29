@@ -43,6 +43,7 @@ interface FamilyDao {
     @Query("DELETE FROM recipes") suspend fun clearRecipes()
     @Query("DELETE FROM people") suspend fun clearPeople()
     @Query("DELETE FROM moments") suspend fun clearMoments()
+
     @Query("DELETE FROM events") suspend fun clearEvents()
     @Query("DELETE FROM author") suspend fun clearAuthor()
     @Query("UPDATE recipes SET personId = NULL WHERE personId = :personId") suspend fun unlinkPerson(personId: Long)
