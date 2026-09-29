@@ -48,10 +48,10 @@ for _ in 1 2 3 4 5 6 7 8; do
         app/build/outputs/vkus-window.xml | head -1 | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]')
     if [ -n "$rect" ]; then
         # bounds="[x1,y1][x2,y2]" -> strip brackets, then split into 4 numbers
-        x1=$(echo "$rect" | tr -d '[]' | cut -d, -f1)
-        y1=$(echo "$rect" | tr -d '[]' | cut -d, -f2)
-        x2=$(echo "$rect" | tr -d '[]' | cut -d, -f3)
-        y2=$(echo "$rect" | tr -d '[]' | cut -d, -f4)
+        x1=$(echo "$rect" | sed -e 's/\]\[/,/g' -e 's/[^0-9,]//g' | cut -d, -f1)
+        y1=$(echo "$rect" | sed -e 's/\]\[/,/g' -e 's/[^0-9,]//g' | cut -d, -f2)
+        x2=$(echo "$rect" | sed -e 's/\]\[/,/g' -e 's/[^0-9,]//g' | cut -d, -f3)
+        y2=$(echo "$rect" | sed -e 's/\]\[/,/g' -e 's/[^0-9,]//g' | cut -d, -f4)
         if [ "$y1" -ge 140 ] && [ "$y2" -le 2140 ]; then break; fi
         rect=""
         if [ "$y2" -le 140 ]; then
@@ -76,10 +76,10 @@ if ! grep -Fq 'Тёмная тема' app/build/outputs/vkus-window.xml; then
     echo 'Expected screen text missing: Тёмная тема' >&2
     exit 1
 fi
-x1=$(echo "$rect" | tr -d '[]' | cut -d, -f1)
-y1=$(echo "$rect" | tr -d '[]' | cut -d, -f2)
-x2=$(echo "$rect" | tr -d '[]' | cut -d, -f3)
-y2=$(echo "$rect" | tr -d '[]' | cut -d, -f4)
+x1=$(echo "$rect" | sed -e 's/\]\[/,/g' -e 's/[^0-9,]//g' | cut -d, -f1)
+y1=$(echo "$rect" | sed -e 's/\]\[/,/g' -e 's/[^0-9,]//g' | cut -d, -f2)
+x2=$(echo "$rect" | sed -e 's/\]\[/,/g' -e 's/[^0-9,]//g' | cut -d, -f3)
+y2=$(echo "$rect" | sed -e 's/\]\[/,/g' -e 's/[^0-9,]//g' | cut -d, -f4)
 adb shell input tap $(( (x1 + x2) / 2 )) $(( (y1 + y2) / 2 ))
 sleep 2
 adb shell screencap -p /sdcard/vkus-dark.png
