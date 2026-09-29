@@ -11,7 +11,7 @@ object ShoppingListBuilder {
         val raw = recipes.flatMap { recipe ->
             parseIngredientLines(recipe.ingredients).map { line ->
                 val catalog = IngredientCatalog.find(line.name)
-                Triple(catalog?.section ?: "Другое", catalog?.name ?: line.name.trim(), line.amount.trim())
+                Triple(catalog?.category ?: "Другое", catalog?.name ?: line.name.trim(), line.amount.trim())
             }
         }.filter { it.second.isNotBlank() }
 
