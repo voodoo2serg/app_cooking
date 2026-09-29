@@ -74,7 +74,8 @@ fun BookScreen(recipes: List<Recipe>, people: List<Person>, versions: List<Recip
 
 @Composable
 fun SettingsScreen(back: () -> Unit, people: List<Person>, recipes: List<Recipe>,
-                   versions: List<RecipeVersion>, moments: List<FamilyMoment>) {
+                   versions: List<RecipeVersion>, moments: List<FamilyMoment>,
+                   darkTheme: Boolean, onDarkThemeChange: (Boolean) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("settings", 0) }
@@ -97,6 +98,15 @@ fun SettingsScreen(back: () -> Unit, people: List<Person>, recipes: List<Recipe>
         }
     }
     Page("Настройки", back) {
+        Section("Оформление")
+        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Тёмная тема", style = MaterialTheme.typography.titleMedium)
+                Text("Тёплые тёмные цвета для вечера", style = MaterialTheme.typography.bodySmall)
+            }
+            Switch(checked = darkTheme, onCheckedChange = onDarkThemeChange)
+        }
         Section("Ваша семья")
         TextBox(familyName, { familyName = it; prefs.edit().putString("family_name", it).apply() }, "Название семейного архива")
         TextBox(bookTitle, { bookTitle = it; prefs.edit().putString("book_title", it).apply() }, "Название книги по умолчанию")

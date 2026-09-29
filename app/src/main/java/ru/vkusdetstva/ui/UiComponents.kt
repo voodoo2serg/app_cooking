@@ -30,10 +30,13 @@ import java.io.File
 @Composable
 fun Page(title: String, back: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(horizontal = BrandDimens.pagePadding)) {
-        Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (back != null) TextButton(onClick = back) { Text("← Назад") }
-            Spacer(Modifier.weight(1f))
-            Text("ВКУС ДЕТСТВА", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+        if (back != null) {
+            Row(Modifier.fillMaxWidth().height(52.dp), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = back) { Text("← Назад") }
+                Spacer(Modifier.weight(1f))
+                Text("ВКУС ДЕТСТВА", style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary)
+            }
         }
         Text(title, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
         Spacer(Modifier.height(12.dp))

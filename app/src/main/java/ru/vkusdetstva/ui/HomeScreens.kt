@@ -1,26 +1,103 @@
 package ru.vkusdetstva.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import ru.vkusdetstva.data.Person
 import ru.vkusdetstva.data.Recipe
+import java.io.File
+import org.json.JSONArray
 
 @Composable
-fun HomeScreen(recipes: List<Recipe>, people: List<Person>, add: () -> Unit, go: (String) -> Unit) {
-    Page("У каждого блюда есть своя история") {
-        Text("Сохраните рецепты, людей и воспоминания, которые собирают вашу семью за одним столом.")
-        Spacer(Modifier.height(14.dp))
-        Action("+ Сохранить семейный рецепт", add)
-        Section("Ваша семейная книга")
-        ListTile("Рецепты · ${recipes.size}", "Истории, фото и семейные версии") { go("recipes") }
-        ListTile("Люди · ${people.size}", "От кого рецепт и кто его готовил") { go("people") }
-        ListTile("Подбор по ингредиентам", "Что приготовить из того, что есть дома") { go("pantry") }
-        ListTile("Как мы это едим", "Фото и истории за столом, отдельно от рецептов") { go("moments") }
-        ListTile("Собрать книгу", "Рецепты, люди и фотоистории") { go("book") }
-        TextButton(onClick = { go("settings") }) { Text("Настройки") }
+fun HomeScreen(recipes: List<Recipe>, people: List<Person>, add: () -> Unit,
+               go: (String) -> Unit, openRecipe: (Long) -> Unit) {
+    Page("У каждого блюда — своя история") {
+        Text("Сохраняйте рецепты, фотографии и голоса тех, кто собирал семью за одним столом.",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(16.dp))
+        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+            shape = RoundedCornerShape(20.dp)) {
+            Column(Modifier.fillMaxWidth().padding(20.dp)) {
+                Text("СЕМЕЙНЫЙ АРХИВ", style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Spacer(Modifier.height(8.dp))
+                Text("Вкус, который остаётся с нами", style = MaterialTheme.typography.headlineSmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Spacer(Modifier.height(8.dp))
+                Text("Начните с блюда, которое хочется передать дальше.",
+                    color = MaterialTheme.colorScheme.onPrimaryContainer)
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = add, modifier = Modifier.heightIn(min = 48.dp)) { Text("+ Записать рецепт") }
+            }
+        }
+        Section("Рецепты · ${recipes.size}")
+        if (recipes.isEmpty()) {
+            ListTile("Пока нет рецептов", "Добавьте первый семейный рецепт с историей и фото", add)
+        } else {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(recipes.take(8)) { recipe ->
+                    RecipePreview(recipe, people.find { it.id == recipe.personId }?.name.orEmpty()) { openRecipe(recipe.id) }
+                }
+            }
+            TextButton(onClick = { go("recipes") }) { Text("Все рецепты →") }
+        }
+        Section("Люди нашей семьи · ${people.size}")
+        if (people.isEmpty()) {
+            ListTile("Чьи рецепты вы храните?", "Добавьте бабушку, маму или другого близкого человека") { go("people") }
+        } else {
+            people.take(3).forEach { person ->
+                ListTile(person.name, "${person.relation} · ${recipes.count { it.personId == person.id }} рецептов") { go("people") }
+            }
+            TextButton(onClick = { go("people") }) { Text("Все люди →") }
+        }
+        Section("Продолжить историю")
+        ListTile("Подбор по ингредиентам", "Выберите продукты из разделов и найдите подходящее блюдо") { go("pantry") }
+        ListTile("Как мы это едим", "Фотографии семьи за столом и воспоминания") { go("moments") }
+        ListTile("Собрать семейную книгу", "Выберите рецепты и проверьте связи с людьми") { go("book") }
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun RecipePreview(recipe: Recipe, author: String, onClick: () -> Unit) {
+    Card(Modifier.width(236.dp).clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        shape = RoundedCornerShape(12.dp)) {
+        val image = recipe.photos.firstOrNull()
+        if (image != null) {
+            AsyncImage(File(image), contentDescription = "Блюдо ${recipe.title}",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxWidth().height(145.dp))
+        } else {
+            Box(Modifier.fillMaxWidth().height(145.dp)
+                .background(MaterialTheme.colorScheme.secondaryContainer), contentAlignment = Alignment.Center) {
+                Text("Семейный рецепт", style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer)
+            }
+        }
+        Column(Modifier.padding(12.dp)) {
+            Text(recipe.title, style = MaterialTheme.typography.titleMedium,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(author.ifBlank { "Наша семейная книга" }, style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("Готовили ${recipe.timesCooked} раз", style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.secondary)
+        }
     }
 }
 
@@ -29,36 +106,171 @@ fun RecipeListScreen(recipes: List<Recipe>, people: List<Person>, back: () -> Un
                      open: (Long) -> Unit, add: () -> Unit) {
     var query by remember { mutableStateOf("") }
     Page("Рецепты", back) {
-        TextBox(query, { query = it }, "Найти блюдо, продукт или человека")
-        val matches = recipes.filter { recipe ->
-            query.isBlank() || listOf(recipe.title, recipe.ingredients,
-                people.find { it.id == recipe.personId }?.name.orEmpty()).any { it.contains(query, true) }
+        TextBox(query, { query = it }, "Название или продукт")
+        recipes.filter { recipe -> query.isBlank() ||
+            recipe.title.contains(query, true) || recipe.ingredients.contains(query, true) ||
+            people.find { it.id == recipe.personId }?.name?.contains(query, true) == true
+        }.forEach { recipe ->
+            ListTile(recipe.title, people.find { it.id == recipe.personId }?.name.orEmpty()) { open(recipe.id) }
         }
-        matches.forEach { recipe ->
-            ListTile(recipe.title, people.find { it.id == recipe.personId }?.name.orEmpty(), { open(recipe.id) })
-        }
-        if (recipes.isEmpty()) Text("Начните с одного семейного рецепта — добавить его можно вручную или с фотографиями.")
+        if (recipes.isEmpty()) Text("Начните с одного семейного рецепта — добавьте его вручную и прикрепите фото.")
         Action("+ Добавить рецепт", add)
     }
 }
 
 @Composable
-fun PantryScreen(recipes: List<Recipe>, back: () -> Unit, open: (Long) -> Unit) {
-    var input by remember { mutableStateOf("") }
-    val have = remember(input) { input.split(',', ';', '\n').map { it.trim().lowercase() }.filter { it.isNotBlank() }.toSet() }
-    val ranked = remember(recipes, have) { recipes.map { recipe ->
-        val needed = recipe.ingredients.lines().map { it.substringBefore('—').substringBefore('-').trim().lowercase() }
-            .filter { it.isNotBlank() }
-        recipe to needed.filter { ingredient -> have.none { it == ingredient || ingredient.startsWith(it) || it.startsWith(ingredient) } }
-    }.filter { (_, missing) -> missing.size <= 2 }.sortedBy { it.second.size } }
-    Page("Из чего готовим сегодня?", back) {
-        Text("Перечислите продукты через запятую. Подбор работает по вашей семейной книге и показывает недостающее.")
-        TextBox(input, { input = it }, "Например: яблоки, мука, яйца", 2)
-        Section("Подходящие рецепты")
-        ranked.forEach { (recipe, missing) ->
-            ListTile(recipe.title, if (missing.isEmpty()) "Всё есть" else "Не хватает: ${missing.joinToString()}") { open(recipe.id) }
+fun SearchScreen(recipes: List<Recipe>, people: List<Person>, back: () -> Unit,
+                 openRecipe: (Long) -> Unit, openPerson: (Long) -> Unit,
+                 selectIngredient: (String) -> Unit) {
+    var query by remember { mutableStateOf("") }
+    var category by remember { mutableStateOf("Все") }
+    val normalized = IngredientCatalog.normalize(query)
+    Page("Поиск в семейном архиве", back) {
+        TextBox(query, { query = it }, "Блюдо, человек или ингредиент")
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(listOf("Все", "Блюда", "Люди", "Продукты")) { label ->
+                FilterChip(category == label, onClick = { category = label }, label = { Text(label) })
+            }
         }
-        if (ranked.isEmpty()) Text("Пока нет совпадений. Добавьте продукты или сохраните рецепт.")
-        Text("Проверяйте количество ингредиентов в самом рецепте.", style = MaterialTheme.typography.bodySmall)
+        if (query.isBlank()) {
+            Text("Найдите пирог по названию, рецепт по имени бабушки или продукт для выпечки.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Section("Быстрый переход")
+            ListTile("Выбрать продукты", "Каталог ингредиентов по разделам") { selectIngredient("") }
+        } else {
+            val foundPeople = people.filter { IngredientCatalog.normalize(it.name + " " + it.relation).contains(normalized) }
+            val foundRecipes = recipes.filter { recipe ->
+                IngredientCatalog.normalize(recipe.title + " " + recipe.ingredients + " " +
+                    people.find { it.id == recipe.personId }?.name.orEmpty()).contains(normalized) ||
+                    IngredientCatalog.find(query)?.let { selected ->
+                        recipe.ingredients.lines().any { IngredientCatalog.find(it)?.name == selected.name }
+                    } == true
+            }
+            val foundIngredients = IngredientCatalog.all.filter {
+                IngredientCatalog.normalize(it.name).contains(normalized) || it.aliases.any { alias ->
+                    IngredientCatalog.normalize(alias).contains(normalized)
+                }
+            }.take(12)
+            if (category == "Все" || category == "Блюда") {
+                Section("Блюда · ${foundRecipes.size}")
+                foundRecipes.forEach { recipe ->
+                    ListTile(recipe.title, people.find { it.id == recipe.personId }?.name.orEmpty()) { openRecipe(recipe.id) }
+                }
+            }
+            if (category == "Все" || category == "Люди") {
+                Section("Люди · ${foundPeople.size}")
+                foundPeople.forEach { person -> ListTile(person.name, person.relation) { openPerson(person.id) } }
+            }
+            if (category == "Все" || category == "Продукты") {
+                Section("Ингредиенты · ${foundIngredients.size}")
+                foundIngredients.forEach { ingredient ->
+                    ListTile(ingredient.name, ingredient.category) { selectIngredient(ingredient.name) }
+                }
+            }
+            if (foundRecipes.isEmpty() && foundPeople.isEmpty() && foundIngredients.isEmpty()) {
+                Text("Ничего не найдено. Попробуйте другое слово.")
+            }
+        }
+    }
+}
+
+@Composable
+fun PantryScreen(recipes: List<Recipe>, back: () -> Unit, open: (Long) -> Unit,
+                 initialIngredient: String? = null) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("pantry", 0) }
+    val selected = remember(initialIngredient) { mutableStateListOf<String>().apply {
+        val saved = JSONArray(prefs.getString("selected", "[]"))
+        for (i in 0 until saved.length()) add(saved.getString(i))
+        if (!initialIngredient.isNullOrBlank() && !contains(initialIngredient)) add(initialIngredient)
+    } }
+    val customNames = remember { mutableStateListOf<String>().apply {
+        val saved = JSONArray(prefs.getString("custom", "[]"))
+        for (i in 0 until saved.length()) add(saved.getString(i))
+    } }
+    LaunchedEffect(selected.toList(), customNames.toList()) {
+        prefs.edit().putString("selected", JSONArray(selected.toList()).toString())
+            .putString("custom", JSONArray(customNames.toList()).toString()).apply()
+    }
+    var category by remember { mutableStateOf(IngredientCatalog.groups.keys.first()) }
+    var filter by remember { mutableStateOf("") }
+    var custom by remember { mutableStateOf("") }
+    val visible = if (filter.isBlank()) IngredientCatalog.groups[category].orEmpty() else
+        IngredientCatalog.all.filter { it.name.contains(filter, true) || it.aliases.any { a -> a.contains(filter, true) } }
+    val ranked = recipes.map { IngredientCatalog.match(it, selected.toSet()) }
+        .filter { it.matched > 0 && it.missing.size <= 3 }
+        .sortedWith(compareBy<RecipeMatch> { it.missing.size }.thenByDescending { it.matched })
+    Page("Подбор по ингредиентам", back) {
+        Text("Что есть дома? Выберите продукты, а мы найдём рецепты вашей семьи и покажем, чего не хватает.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(10.dp))
+        TextBox(filter, { filter = it }, "Найти продукт в каталоге")
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(IngredientCatalog.groups.keys.toList()) { name ->
+                FilterChip(category == name && filter.isBlank(), onClick = { category = name; filter = "" },
+                    label = { Text(name) })
+            }
+        }
+        Section(if (filter.isBlank()) category else "Результаты каталога")
+        if (visible.isEmpty()) Text("Такого продукта нет в каталоге — добавьте его ниже.")
+        visible.chunked(2).forEach { row ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { item ->
+                    FilterChip(selected.contains(item.name),
+                        onClick = { if (selected.contains(item.name)) selected.remove(item.name) else selected.add(item.name) },
+                        label = { Text(item.name, maxLines = 2) }, modifier = Modifier.weight(1f))
+                }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(custom, { custom = it }, label = { Text("Другой продукт") },
+                singleLine = true, modifier = Modifier.weight(1f))
+            TextButton(onClick = {
+                val name = custom.trim()
+                if (name.isNotBlank() && selected.none { it.equals(name, true) }) selected.add(name)
+                if (name.isNotBlank() && IngredientCatalog.find(name) == null &&
+                    customNames.none { it.equals(name, true) }) customNames.add(name)
+                custom = ""
+            }, enabled = custom.isNotBlank()) { Text("Добавить") }
+        }
+        if (customNames.isNotEmpty()) {
+            Section("Свои продукты")
+            customNames.chunked(2).forEach { row ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    row.forEach { item ->
+                        FilterChip(selected.contains(item),
+                            onClick = { if (selected.contains(item)) selected.remove(item) else selected.add(item) },
+                            label = { Text(item, maxLines = 2) }, modifier = Modifier.weight(1f))
+                    }
+                    if (row.size == 1) Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+        Section("У вас есть · ${selected.size}")
+        if (selected.isEmpty()) Text("Выберите хотя бы один ингредиент из разделов выше.")
+        selected.chunked(3).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                row.forEach { item ->
+                    InputChip(selected = true, onClick = { selected.remove(item) },
+                        label = { Text("$item ×") })
+                }
+            }
+        }
+        Section("Что можно приготовить · ${ranked.size}")
+        if (selected.isNotEmpty() && ranked.isEmpty()) {
+            Text(if (recipes.isEmpty()) "Пока нет семейных рецептов. Добавьте первый рецепт."
+                else "Совпадений пока нет. Выберите ещё продукты или проверьте написание ингредиентов в рецептах.")
+        }
+        ranked.forEach { match ->
+            val summary = if (match.missing.isEmpty()) "Всё есть · ${match.matched} из ${match.total}"
+            else "Есть ${match.matched} из ${match.total} · не хватает: ${match.missing.joinToString()}"
+            ListTile(match.recipe.title, summary) { open(match.recipe.id) }
+        }
+        if (selected.isNotEmpty()) Text("Количество продуктов проверьте в самом рецепте.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(24.dp))
     }
 }

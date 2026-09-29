@@ -15,3 +15,9 @@ if adb logcat -d -v brief | grep -E 'FATAL EXCEPTION|Process: ru.vkusdetstva'; t
     echo 'App crashed after installation.' >&2
     exit 1
 fi
+adb shell screencap -p /sdcard/vkus-home.png
+adb pull /sdcard/vkus-home.png app/build/outputs/vkus-home.png
+adb shell input tap 963 2235
+sleep 2
+adb shell screencap -p /sdcard/vkus-settings.png
+adb pull /sdcard/vkus-settings.png app/build/outputs/vkus-settings.png
