@@ -47,8 +47,11 @@ for _ in 1 2 3 4 5 6 7 8; do
     rect=$(grep -o 'checkable="true"[^>]*bounds="\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]"' \
         app/build/outputs/vkus-window.xml | head -1 | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]')
     if [ -n "$rect" ]; then
-        y1=$(echo "$rect" | cut -d, -f2)
-        y2=$(echo "$rect" | cut -d, -f4 | tr -d '][')
+        # bounds="[x1,y1][x2,y2]" -> strip brackets, then split into 4 numbers
+        x1=$(echo "$rect" | tr -d '[]' | cut -d, -f1)
+        y1=$(echo "$rect" | tr -d '[]' | cut -d, -f2)
+        x2=$(echo "$rect" | tr -d '[]' | cut -d, -f3)
+        y2=$(echo "$rect" | tr -d '[]' | cut -d, -f4)
         if [ "$y1" -ge 140 ] && [ "$y2" -le 2140 ]; then break; fi
         rect=""
         if [ "$y2" -le 140 ]; then
@@ -57,7 +60,7 @@ for _ in 1 2 3 4 5 6 7 8; do
             adb shell input swipe 540 1600 540 1000 300 # below the fold: scroll on
         fi
     else
-        adb shell input swipe 540 1600 540 1000 300 # switch not composed yet
+        adb shell input swipe 540 1600 540 1000 300 # switch not found in this dump
     fi
     sleep 1
 done
@@ -73,10 +76,10 @@ if ! grep -Fq 'Тёмная тема' app/build/outputs/vkus-window.xml; then
     echo 'Expected screen text missing: Тёмная тема' >&2
     exit 1
 fi
-x1=$(echo "$rect" | cut -d, -f1 | tr -d '[')
-y1=$(echo "$rect" | cut -d, -f2)
-x2=$(echo "$rect" | cut -d, -f3 | tr -d '][')
-y2=$(echo "$rect" | cut -d, -f4 | tr -d ']')
+x1=$(echo "$rect" | tr -d '[]' | cut -d, -f1)
+y1=$(echo "$rect" | tr -d '[]' | cut -d, -f2)
+x2=$(echo "$rect" | tr -d '[]' | cut -d, -f3)
+y2=$(echo "$rect" | tr -d '[]' | cut -d, -f4)
 adb shell input tap $(( (x1 + x2) / 2 )) $(( (y1 + y2) / 2 ))
 sleep 2
 adb shell screencap -p /sdcard/vkus-dark.png
