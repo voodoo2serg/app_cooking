@@ -40,3 +40,10 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: bash scripts/install-smoke.sh
+      - name: Record checksum and upload tested APK
+        run: sha256sum app/build/outputs/apk/debug/app-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vkus-detstva-android15-tested-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
