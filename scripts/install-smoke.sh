@@ -34,12 +34,26 @@ adb shell screencap -p /sdcard/vkus-home.png
 adb pull /sdcard/vkus-home.png app/build/outputs/vkus-home.png
 adb shell input tap 963 2235
 sleep 2
-assert_screen 'Тёмная тема'
+assert_screen 'Профиль автора'
 adb shell screencap -p /sdcard/vkus-settings.png
 adb pull /sdcard/vkus-settings.png app/build/outputs/vkus-settings.png
-adb shell input tap 970 552
-sleep 2
+adb shell input swipe 540 1700 540 700 400
+sleep 1
 assert_screen 'Тёмная тема'
+# The switch sits below the fold: locate the only checkable node on the
+# settings screen and tap its center instead of hard-coded coordinates.
+rect=$(grep -o 'checkable="true"[^>]*bounds="\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]"' \
+    app/build/outputs/vkus-window.xml | head -1 | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]')
+if [ -z "$rect" ]; then
+    echo 'Theme switch not found on the settings screen.' >&2
+    exit 1
+fi
+x1=$(echo "$rect" | cut -d, -f1 | tr -d '[')
+y1=$(echo "$rect" | cut -d, -f2)
+x2=$(echo "$rect" | cut -d, -f3 | tr -d '][')
+y2=$(echo "$rect" | cut -d, -f4 | tr -d ']')
+adb shell input tap $(( (x1 + x2) / 2 )) $(( (y1 + y2) / 2 ))
+sleep 2
 adb shell screencap -p /sdcard/vkus-dark.png
 adb pull /sdcard/vkus-dark.png app/build/outputs/vkus-dark.png
 adb shell input tap 320 2235
