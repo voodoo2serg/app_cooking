@@ -91,7 +91,7 @@ private fun saveBookOptions(context: android.content.Context, options: BookOptio
 
 @Composable
 fun BookWizard(people: List<Person>, recipes: List<Recipe>, versions: List<RecipeVersion>,
-               moments: List<FamilyMoment>, back: () -> Unit) {
+               moments: List<FamilyMoment>, authorName: String = "", back: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var options by remember { mutableStateOf(loadBookOptions(context)) }
@@ -117,7 +117,7 @@ fun BookWizard(people: List<Person>, recipes: List<Recipe>, versions: List<Recip
             progress = 0f
             status = "Собираем книгу…"
             val result = runCatching {
-                val model = BookComposer.compose(people, recipes, versions, moments, options)
+                val model = BookComposer.compose(people, recipes, versions, moments, options, authorName.takeIf { it.isNotBlank() })
                 withContext(Dispatchers.IO) {
                     BookRenderer.render(context, model, uri, booklet = false) { done, total ->
                         progress = if (total == 0) 0f else done.toFloat() / total
@@ -138,7 +138,7 @@ fun BookWizard(people: List<Person>, recipes: List<Recipe>, versions: List<Recip
             progress = 0f
             status = "Собираем печатные листы…"
             val result = runCatching {
-                val model = BookComposer.compose(people, recipes, versions, moments, options)
+                val model = BookComposer.compose(people, recipes, versions, moments, options, authorName.takeIf { it.isNotBlank() })
                 withContext(Dispatchers.IO) {
                     BookRenderer.render(context, model, uri, booklet = true) { done, total ->
                         progress = if (total == 0) 0f else done.toFloat() / total

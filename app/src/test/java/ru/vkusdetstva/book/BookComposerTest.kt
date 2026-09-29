@@ -51,6 +51,17 @@ class BookComposerTest {
     }
 
     @Test
+    fun `people edition names author chapter when authorName is given`() {
+        val recipes = listOf(recipe(1, "Каша", personId = null))
+        val model = BookComposer.compose(emptyList(), recipes, emptyList(), emptyList(),
+            options.copy(edition = Edition.BY_PEOPLE), authorName = "Сергей")
+        val openers = model.pages.filterIsInstance<BookPage.ChapterOpener>()
+        assertEquals(1, openers.size)
+        assertEquals("Рецепты автора", openers[0].title)
+        assertEquals("Сергей", openers[0].subtitle)
+    }
+
+    @Test
     fun `chronology edition makes year chapters ascending`() {
         val recipes = listOf(
             recipe(1, "А", createdAt = 1_700_000_000_000),

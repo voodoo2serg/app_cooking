@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import ru.vkusdetstva.data.AuthorProfile
 import ru.vkusdetstva.data.Person
 import ru.vkusdetstva.data.Recipe
 import ru.vkusdetstva.data.RecipeVersion
@@ -39,8 +40,11 @@ fun RecipeEditScreen(existing: Recipe?, people: List<Person>, back: () -> Unit, 
         TextBox(title, { title = it }, "Название")
         Text("От кого рецепт", style = MaterialTheme.typography.titleSmall)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            TextButton(onClick = { personId = null }) { Text(if (personId == null) "✓ Без автора" else "Без автора") }
+            TextButton(onClick = { personId = null }) { Text(if (personId == null) "✓ От лица автора" else "От лица автора") }
         }
+        Text("Если не выбрать никого — рецепт будет подписан именем автора книги из профиля.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
         people.forEach { person ->
             TextButton(onClick = { personId = person.id }) {
                 Text((if (personId == person.id) "✓ " else "") + person.name)
@@ -73,9 +77,10 @@ fun RecipeEditScreen(existing: Recipe?, people: List<Person>, back: () -> Unit, 
 }
 
 @Composable
-fun RecipeScreen(recipe: Recipe, author: Person?, versions: List<RecipeVersion>, back: () -> Unit,
-                 edit: () -> Unit, addVersion: () -> Unit, cooked: () -> Unit,
-                 update: (Recipe) -> Unit, delete: () -> Unit) {
+fun RecipeScreen(recipe: Recipe, person: Person?, bookAuthor: AuthorProfile? = null,
+                 versions: List<RecipeVersion> = emptyList(), back: () -> Unit = {},
+                 edit: () -> Unit = {}, addVersion: () -> Unit = {}, cooked: () -> Unit = {},
+                 update: (Recipe) -> Unit = {}, delete: () -> Unit = {}) {
     val context = LocalContext.current
     val audio = remember { AudioNote(context) }
     DisposableEffect(audio) { onDispose { audio.release() } }
@@ -84,7 +89,11 @@ fun RecipeScreen(recipe: Recipe, author: Person?, versions: List<RecipeVersion>,
     var ease by remember(recipe.id) { mutableFloatStateOf(recipe.ease.toFloat()) }
     var memory by remember(recipe.id) { mutableFloatStateOf(recipe.memory.toFloat()) }
     Page(recipe.title, back) {
-        Text(author?.let { "Рецепт от ${it.name}" } ?: "Семейный рецепт")
+        Text(when {
+            person != null -> "Рецепт от ${person.name}"
+            bookAuthor != null && bookAuthor.name.isNotBlank() -> "От лица автора · ${bookAuthor.name}"
+            else -> "Семейный рецепт"
+        })
         PhotoCarousel(recipe.photos, "Фото блюда")
         Text(recipe.story)
         Section("Жизнь рецепта")

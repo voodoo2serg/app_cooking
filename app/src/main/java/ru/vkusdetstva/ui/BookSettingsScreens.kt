@@ -8,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import ru.vkusdetstva.data.AuthorProfile
 import ru.vkusdetstva.data.FamilyMoment
 import ru.vkusdetstva.data.Person
 import ru.vkusdetstva.data.Recipe
@@ -20,7 +21,8 @@ import kotlinx.coroutines.withContext
 @Composable
 fun SettingsScreen(back: () -> Unit, people: List<Person>, recipes: List<Recipe>,
                    versions: List<RecipeVersion>, moments: List<FamilyMoment>,
-                   darkTheme: Boolean, onDarkThemeChange: (Boolean) -> Unit) {
+                   author: AuthorProfile? = null, darkTheme: Boolean = false,
+                   onDarkThemeChange: (Boolean) -> Unit = {}, openAuthor: () -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("settings", 0) }
@@ -31,7 +33,7 @@ fun SettingsScreen(back: () -> Unit, people: List<Person>, recipes: List<Recipe>
     val backup = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         if (uri != null) scope.launch {
             status = "Сохраняем архив…"
-            status = runCatching { withContext(Dispatchers.IO) { FamilyArchive.export(context, uri, people, recipes, versions, moments) } }
+            status = runCatching { withContext(Dispatchers.IO) { FamilyArchive.export(context, uri, people, recipes, versions, moments, author) } }
                 .fold({ "Архив сохранён" }, { "Ошибка: ${it.message}" })
         }
     }
@@ -43,6 +45,12 @@ fun SettingsScreen(back: () -> Unit, people: List<Person>, recipes: List<Recipe>
         }
     }
     Page("Настройки", back) {
+        Section("Профиль автора")
+        ListTile(author?.name?.takeIf { it.isNotBlank() } ?: "Автор ещё не заполнен",
+            author?.name?.takeIf { it.isNotBlank() }?.let { n ->
+                listOf(author?.tagline.orEmpty(), "неподписанные рецепты — от его лица")
+                    .filter { it.isNotBlank() }.joinToString(" · ")
+            } ?: "Рецепты без подписи выходят от лица автора", openAuthor)
         Section("Оформление")
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp),
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -69,6 +77,6 @@ fun SettingsScreen(back: () -> Unit, people: List<Person>, recipes: List<Recipe>
             dismissButton = { TextButton(onClick = { confirmRestore = false }) { Text("Отмена") } })
         if (status.isNotBlank()) Text(status, style = MaterialTheme.typography.bodySmall)
         Section("О приложении")
-        Text("Вкус детства · версия 0.2.0")
+        Text("Вкус детства · версия 0.3.0")
     }
 }

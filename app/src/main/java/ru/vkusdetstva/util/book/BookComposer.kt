@@ -12,10 +12,10 @@ object BookComposer {
 
     fun compose(
         people: List<Person>, recipes: List<Recipe>, versions: List<RecipeVersion>,
-        moments: List<FamilyMoment>, options: BookOptions
+        moments: List<FamilyMoment>, options: BookOptions, authorName: String? = null
     ): BookModel {
         val year = Calendar.getInstance().get(Calendar.YEAR)
-        val chapters = buildChapters(people, recipes, options.edition)
+        val chapters = buildChapters(people, recipes, options.edition, authorName)
         val counts = recipes.filter { it.personId != null }
             .groupingBy { it.personId!! }.eachCount()
 
@@ -65,7 +65,8 @@ object BookComposer {
         return BookModel(options, pages, meta)
     }
 
-    fun buildChapters(people: List<Person>, recipes: List<Recipe>, edition: Edition): List<Chapter> {
+    fun buildChapters(people: List<Person>, recipes: List<Recipe>, edition: Edition,
+                      authorName: String? = null): List<Chapter> {
         if (recipes.isEmpty()) return emptyList()
         val byPopularity = compareByDescending<Recipe> { it.timesCooked }
             .thenByDescending { it.taste }
@@ -88,7 +89,11 @@ object BookComposer {
                 val orphan = recipes.filter { recipe ->
                     recipe.personId == null || people.none { it.id == recipe.personId }
                 }.sortedBy { it.createdAt }
-                if (orphan.isNotEmpty()) own + Chapter("Из общей тетради", "рецепты без автора", orphan) else own
+                if (orphan.isNotEmpty()) own + Chapter(
+                    title = if (!authorName.isNullOrBlank()) "Рецепты автора" else "Из общей тетради",
+                    subtitle = if (!authorName.isNullOrBlank()) authorName else "рецепты без подписи",
+                    recipes = orphan
+                ) else own
             }
             Edition.CHRONOLOGY -> recipes.groupBy { yearOf(it.createdAt) }.toSortedMap()
                 .map { (year, list) ->
