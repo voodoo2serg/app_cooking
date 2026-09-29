@@ -26,21 +26,17 @@ object ShoppingListBuilder {
 
     private fun humanAmount(name: String, amounts: List<String>): String {
         val n = name.lowercase()
-        val fallback = amounts.distinct().joinToString(" + ").ifBlank { "1 упаковка" }
-        return when {
-            "масл" in n -> "1 пачка"
-            "сахар" in n -> "1 пакет, около 1 кг"
-            "мук" in n -> "1 пакет, около 1 кг"
-            "молок" in n -> "1 упаковка"
-            "сливк" in n -> "1 упаковка"
-            "сметан" in n -> "1 упаковка"
-            "творог" in n -> "1 пачка"
-            "яйц" in n -> "1 десяток"
-            "сыр" in n -> "1 упаковка"
-            "макарон" in n || "рис" in n || "греч" in n -> "1 пачка"
-            "соль" in n || "специ" in n || "перец" in n -> "проверьте дома"
-            else -> fallback
+        val packageName = when {
+            "масл" in n || "творог" in n -> "пачка"
+            "сахар" in n || "мук" in n -> "пакет 1 кг"
+            "молок" in n || "сливк" in n || "сметан" in n || "сыр" in n -> "упаковка"
+            "яйц" in n -> "десяток"
+            "макарон" in n || "рис" in n || "греч" in n -> "пачка"
+            else -> null
         }
+        val requested = amounts.joinToString(" + ").ifBlank { "количество не указано" }
+        // Never claim that one pack is sufficient when several recipes may need more.
+        return if (packageName != null) "$packageName (по рецептам: $requested)" else requested
     }
 
     fun asMessage(items: List<ShoppingItem>, title: String = "Список в магазин"): String {

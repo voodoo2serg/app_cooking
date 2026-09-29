@@ -16,6 +16,10 @@ import ru.vkusdetstva.data.Person
 import ru.vkusdetstva.data.Recipe
 import ru.vkusdetstva.data.RecipeVersion
 import ru.vkusdetstva.util.AudioNote
+import ru.vkusdetstva.util.FamilyShare
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun RecipeEditScreen(existing: Recipe?, people: List<Person>, back: () -> Unit, save: (Recipe) -> Unit) {
@@ -83,6 +87,9 @@ fun RecipeScreen(recipe: Recipe, person: Person?, bookAuthor: AuthorProfile? = n
                  update: (Recipe) -> Unit = {}, delete: () -> Unit = {}) {
     val context = LocalContext.current
     val audio = remember { AudioNote(context) }
+    val scope = rememberCoroutineScope()
+    var sharing by remember { mutableStateOf(false) }
+    var shareError by remember { mutableStateOf("") }
     DisposableEffect(audio) { onDispose { audio.release() } }
     var notes by remember(recipe.id) { mutableStateOf(recipe.notes) }
     var taste by remember(recipe.id) { mutableFloatStateOf(recipe.taste.toFloat()) }
@@ -108,6 +115,21 @@ fun RecipeScreen(recipe: Recipe, person: Person?, bookAuthor: AuthorProfile? = n
         Text(recipe.ingredients.ifBlank { "Пока не добавлены" })
         Section("Приготовление")
         Text(recipe.steps.ifBlank { "Пока не добавлены" })
+        Section("Отправка родне")
+        OutlinedButton(onClick = { FamilyShare.shareText(context, recipe.title,
+            FamilyShare.recipeText(recipe, person, bookAuthor)) }) { Text("Отправить рецепт текстом") }
+        OutlinedButton(onClick = {
+            scope.launch {
+                sharing = true; shareError = ""
+                val result = runCatching { withContext(Dispatchers.IO) {
+                    FamilyShare.createPdf(context, recipe.title, listOf(recipe), listOfNotNull(person), versions, bookAuthor)
+                } }
+                sharing = false
+                result.fold({ FamilyShare.sharePdf(context, recipe.title, it) },
+                    { shareError = "Не удалось создать PDF: ${it.message}" })
+            }
+        }, enabled = !sharing) { Text(if (sharing) "Собираем PDF…" else "Отправить рецепт в PDF") }
+        if (shareError.isNotBlank()) Text(shareError, color = MaterialTheme.colorScheme.error)
         Section("Оценки семьи · от 1 до 5")
         Rating("Легендарный вкус", taste, { taste = it }, { update(recipe.copy(taste = taste.toInt())) })
         Rating("Простота приготовления", ease, { ease = it }, { update(recipe.copy(ease = ease.toInt())) })

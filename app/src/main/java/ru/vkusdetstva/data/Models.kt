@@ -30,7 +30,8 @@ data class Recipe(
     val taste: Int = 0,
     val ease: Int = 0,
     val memory: Int = 0,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val likes: Int = 0
 )
 
 /** Единственная строка (id = 1) — владелец книги. Рецепты без personId выходят от его лица. */
@@ -51,7 +52,8 @@ data class RecipeVersion(
     val change: String,
     val note: String = "",
     val photos: List<String> = emptyList(),
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val likes: Int = 0
 )
 
 @Entity(tableName = "moments")

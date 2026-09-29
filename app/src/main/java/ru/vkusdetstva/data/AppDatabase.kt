@@ -38,10 +38,14 @@ interface FamilyDao {
     @Query("DELETE FROM recipes") suspend fun clearRecipes()
     @Query("DELETE FROM people") suspend fun clearPeople()
     @Query("DELETE FROM moments") suspend fun clearMoments()
+    @Query("DELETE FROM author") suspend fun clearAuthor()
+    @Query("UPDATE recipes SET personId = NULL WHERE personId = :personId") suspend fun unlinkPerson(personId: Long)
+    @Query("UPDATE recipes SET likes = likes + 1 WHERE id = :id") suspend fun likeRecipe(id: Long)
+    @Query("UPDATE moments SET likes = likes + 1 WHERE id = :id") suspend fun likeMoment(id: Long)
 }
 
 @Database(entities = [Person::class, Recipe::class, RecipeVersion::class, FamilyMoment::class, AuthorProfile::class],
-    version = 2, exportSchema = false)
+    version = 3, exportSchema = false)
 @TypeConverters(PhotoConverter::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun dao(): FamilyDao
@@ -52,10 +56,16 @@ abstract class AppDatabase : RoomDatabase() {
                     "`tagline` TEXT NOT NULL, `bio` TEXT NOT NULL, `photos` TEXT NOT NULL, PRIMARY KEY(`id`))")
             }
         }
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE recipes ADD COLUMN likes INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE moments ADD COLUMN likes INTEGER NOT NULL DEFAULT 0")
+            }
+        }
         @Volatile private var instance: AppDatabase? = null
         fun get(context: Context): AppDatabase = instance ?: synchronized(this) {
             instance ?: Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "family-recipes.db")
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build().also { instance = it }
         }
     }

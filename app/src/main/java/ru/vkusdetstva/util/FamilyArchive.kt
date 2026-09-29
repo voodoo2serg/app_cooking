@@ -36,14 +36,14 @@ object FamilyArchive {
             .put("story", r.story).put("ingredients", r.ingredients).put("steps", r.steps)
             .put("notes", r.notes).put("photos", photos(r.photos)).put("audio", media(r.audioPath))
             .put("timesCooked", r.timesCooked).put("taste", r.taste).put("ease", r.ease)
-            .put("memory", r.memory).put("createdAt", r.createdAt)) } })
+            .put("memory", r.memory).put("createdAt", r.createdAt).put("likes", r.likes)) } })
         root.put("versions", JSONArray().apply { versions.forEach { v -> put(JSONObject()
             .put("id", v.id).put("recipeId", v.recipeId).put("personName", v.personName)
             .put("change", v.change).put("note", v.note).put("photos", photos(v.photos))
             .put("createdAt", v.createdAt)) } })
         root.put("moments", JSONArray().apply { moments.forEach { m -> put(JSONObject()
             .put("id", m.id).put("title", m.title).put("story", m.story).put("people", m.people)
-            .put("photos", photos(m.photos)).put("createdAt", m.createdAt)) } })
+            .put("photos", photos(m.photos)).put("createdAt", m.createdAt).put("likes", m.likes)) } })
         author?.let { a -> root.put("author", JSONObject()
             .put("name", a.name).put("tagline", a.tagline).put("bio", a.bio)
             .put("photos", photos(a.photos))) }
@@ -61,14 +61,28 @@ object FamilyArchive {
         val media = mutableMapOf<String, File>()
         var manifest: JSONObject? = null
         var total = 0L
+        var entries = 0
         try {
             context.contentResolver.openInputStream(uri)?.use { input -> ZipInputStream(input).use { zip ->
                 var entry = zip.nextEntry
                 while (entry != null) {
                     require(!entry.isDirectory && (entry.name == "manifest.json" || Regex("media/[A-Za-z0-9_.-]{1,100}").matches(entry.name)))
-                    val bytes = zip.readBytes()
-                    total += bytes.size
-                    require(total < 250_000_000) { "Архив слишком большой" }
+                    require(++entries <= 1000) { "Слишком много файлов в архиве" }
+                    require(entry.name != "manifest.json" || manifest == null) { "Повторное описание архива" }
+                    require(entry.name == "manifest.json" || entry.name !in media) { "Повторный файл в архиве" }
+                    val limit = if (entry.name == "manifest.json") 8_000_000L else 25_000_000L
+                    val bytes = java.io.ByteArrayOutputStream().use { out ->
+                        val buffer = ByteArray(8192)
+                        var size = 0L
+                        while (true) {
+                            val n = zip.read(buffer)
+                            if (n < 0) break
+                            size += n; total += n
+                            require(size <= limit && total <= 250_000_000L) { "Архив слишком большой" }
+                            out.write(buffer, 0, n)
+                        }
+                        out.toByteArray()
+                    }
                     if (entry.name == "manifest.json") manifest = JSONObject(String(bytes)) else {
                         val file = File(folder, entry.name.substringAfter('/')); file.writeBytes(bytes); media[entry.name] = file
                     }
@@ -86,13 +100,13 @@ object FamilyArchive {
                 r.getLong("id"), r.getString("title"), r.getLong("personId").takeIf { it != 0L },
                 r.getString("story"), r.getString("ingredients"), r.getString("steps"), r.getString("notes"),
                 getPhotos(r), media[r.getString("audio")]?.absolutePath, r.getInt("timesCooked"),
-                r.getInt("taste"), r.getInt("ease"), r.getInt("memory"), r.getLong("createdAt")) }
+                r.getInt("taste"), r.getInt("ease"), r.getInt("memory"), r.getLong("createdAt"), r.optInt("likes")) }
             val versions = data.getJSONArray("versions").objects().map { v -> RecipeVersion(
                 v.getLong("id"), v.getLong("recipeId"), v.getString("personName"), v.getString("change"),
                 v.getString("note"), getPhotos(v), v.getLong("createdAt")) }
             val moments = data.getJSONArray("moments").objects().map { m -> FamilyMoment(
                 m.getLong("id"), m.getString("title"), m.getString("story"), m.getString("people"),
-                getPhotos(m), m.getLong("createdAt")) }
+                getPhotos(m), m.getLong("createdAt"), m.optInt("likes")) }
             val author = data.optJSONObject("author")?.let { a -> AuthorProfile(1L,
                 a.optString("name"), a.optString("tagline"), a.optString("bio"), getPhotos(a)) }
             val dest = File(context.filesDir, "restored_${UUID.randomUUID()}").apply { mkdirs() }
@@ -101,7 +115,7 @@ object FamilyArchive {
             val db = AppDatabase.get(context)
             db.withTransaction {
                 val dao = db.dao()
-                dao.clearVersions(); dao.clearRecipes(); dao.clearPeople(); dao.clearMoments()
+                dao.clearVersions(); dao.clearRecipes(); dao.clearPeople(); dao.clearMoments(); dao.clearAuthor()
                 people.forEach { dao.addPerson(it.copy(photos = remap(it.photos))) }
                 recipes.forEach { dao.addRecipe(it.copy(photos = remap(it.photos), audioPath = it.audioPath?.let { path -> remap(listOf(path)).first() })) }
                 versions.forEach { dao.addVersion(it.copy(photos = remap(it.photos))) }

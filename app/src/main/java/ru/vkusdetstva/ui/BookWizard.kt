@@ -41,7 +41,8 @@ private val coverColors = linkedMapOf(
 private fun loadBookOptions(context: android.content.Context): BookOptions {
     val mainPrefs = context.getSharedPreferences("settings", 0)
     val family = mainPrefs.getString("family_name", null)?.takeIf { it.isNotBlank() } ?: "Моя семья"
-    val base = BookOptions(familyName = family)
+    val title = mainPrefs.getString("book_title", null)?.takeIf { it.isNotBlank() } ?: "Фамильные рецепты"
+    val base = BookOptions(familyName = family, title = title)
     val raw = context.getSharedPreferences("book_options", 0).getString("json", null) ?: return base
     return runCatching {
         val o = JSONObject(raw)

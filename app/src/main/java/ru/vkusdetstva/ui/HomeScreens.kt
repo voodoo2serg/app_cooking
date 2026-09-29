@@ -20,10 +20,14 @@ import ru.vkusdetstva.data.Person
 import ru.vkusdetstva.data.Recipe
 import java.io.File
 import org.json.JSONArray
+import ru.vkusdetstva.util.BookReadiness
+import ru.vkusdetstva.util.ShoppingListBuilder
+import ru.vkusdetstva.util.FamilyShare
 
 @Composable
 fun HomeScreen(recipes: List<Recipe>, people: List<Person>, add: () -> Unit,
-               go: (String) -> Unit, openRecipe: (Long) -> Unit, authorName: String = "") {
+               go: (String) -> Unit, openRecipe: (Long) -> Unit, authorName: String = "",
+               readiness: BookReadiness? = null) {
     Page("У каждого блюда — своя история") {
         Text("Сохраняйте рецепты, фотографии и голоса тех, кто собирал семью за одним столом.",
             style = MaterialTheme.typography.bodyLarge,
@@ -43,6 +47,13 @@ fun HomeScreen(recipes: List<Recipe>, people: List<Person>, add: () -> Unit,
                 Spacer(Modifier.height(16.dp))
                 Button(onClick = add, modifier = Modifier.heightIn(min = 48.dp)) { Text("+ Записать рецепт") }
             }
+        }
+        readiness?.let { state ->
+            Section("Ваша книга готова на ${state.percent}%")
+            LinearProgressIndicator(progress = { state.percent / 100f }, modifier = Modifier.fillMaxWidth())
+            Text("${recipes.size} рецептов · ${people.size} близких · ${recipes.sumOf { it.photos.size }} фотографий")
+            state.hints.forEach { Text("• $it", style = MaterialTheme.typography.bodySmall) }
+            TextButton(onClick = { go("book") }) { Text("Посмотреть книгу →") }
         }
         Section("Рецепты · ${recipes.size}")
         if (recipes.isEmpty()) {
@@ -68,8 +79,47 @@ fun HomeScreen(recipes: List<Recipe>, people: List<Person>, add: () -> Unit,
         Section("Продолжить историю")
         ListTile("Подбор по ингредиентам", "Выберите продукты из разделов и найдите подходящее блюдо") { go("pantry") }
         ListTile("Как мы это едим", "Фотографии семьи за столом и воспоминания") { go("moments") }
+        ListTile("Лента семейного стола", "Рецепты и застолья этого архива · отметьте любимые") { go("feed") }
+        ListTile("Список в магазин", "Блюда на ужин → продукты понятными упаковками") { go("shopping") }
         ListTile("Собрать семейную книгу", "Выберите рецепты и проверьте связи с людьми") { go("book") }
         Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+fun ShoppingListScreen(recipes: List<Recipe>, back: () -> Unit) {
+    val context = LocalContext.current
+    val selected = remember { mutableStateListOf<Long>() }
+    val list = remember(recipes, selected.toList()) { ShoppingListBuilder.build(recipes.filter { it.id in selected }) }
+    Page("Список в магазин", back) {
+        Text("Выберите блюда. Список можно отправить ребёнку или другому близкому человеку.")
+        recipes.forEach { recipe ->
+            CheckboxRow(recipe.title, recipe.id in selected) {
+                if (recipe.id in selected) selected.remove(recipe.id) else selected.add(recipe.id)
+            }
+        }
+        Section("Купить · ${list.size}")
+        if (selected.isEmpty()) Text("Сначала выберите хотя бы одно блюдо.")
+        list.groupBy { it.section }.forEach { (section, items) ->
+            Text(section, style = MaterialTheme.typography.titleMedium)
+            items.forEach { Text("• ${it.name} — ${it.amount}") }
+        }
+        if (list.isNotEmpty()) {
+            Text("Упаковки ориентировочные: перед покупкой сверьте количество с рецептами.",
+                style = MaterialTheme.typography.bodySmall)
+            Action("Отправить список", {
+                FamilyShare.shareText(context, "Список в магазин", ShoppingListBuilder.asMessage(list))
+            })
+        }
+    }
+}
+
+@Composable
+private fun CheckboxRow(label: String, checked: Boolean, onChange: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onChange).heightIn(min = 48.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Checkbox(checked = checked, onCheckedChange = { onChange() })
+        Text(label)
     }
 }
 
