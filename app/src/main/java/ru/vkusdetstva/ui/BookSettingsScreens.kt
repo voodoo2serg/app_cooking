@@ -124,6 +124,6 @@ fun SettingsScreen(back: () -> Unit, people: List<Person>, recipes: List<Recipe>
             dismissButton = { TextButton(onClick = { confirmRestore = false }) { Text("Отмена") } })
         if (status.isNotBlank()) Text(status, style = MaterialTheme.typography.bodySmall)
         Section("О приложении")
-        Text("Вкус детства · версия 0.1.0")
+        Text("Вкус детства · версия 0.2.0")
     }
 }

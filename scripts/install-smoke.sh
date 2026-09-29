@@ -21,3 +21,11 @@ adb shell input tap 963 2235
 sleep 2
 adb shell screencap -p /sdcard/vkus-settings.png
 adb pull /sdcard/vkus-settings.png app/build/outputs/vkus-settings.png
+adb shell input tap 970 552
+sleep 2
+adb shell screencap -p /sdcard/vkus-dark.png
+adb pull /sdcard/vkus-dark.png app/build/outputs/vkus-dark.png
+adb shell input tap 320 2235
+sleep 2
+adb shell screencap -p /sdcard/vkus-search.png
+adb pull /sdcard/vkus-search.png app/build/outputs/vkus-search.png

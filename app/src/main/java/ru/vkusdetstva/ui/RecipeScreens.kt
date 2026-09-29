@@ -21,7 +21,9 @@ fun RecipeEditScreen(existing: Recipe?, people: List<Person>, back: () -> Unit, 
     var title by remember(existing?.id) { mutableStateOf(existing?.title.orEmpty()) }
     var personId by remember(existing?.id) { mutableStateOf(existing?.personId) }
     var story by remember(existing?.id) { mutableStateOf(existing?.story.orEmpty()) }
-    var ingredients by remember(existing?.id) { mutableStateOf(existing?.ingredients.orEmpty()) }
+    val ingredientLines = remember(existing?.id) {
+        mutableStateListOf<IngredientLine>().apply { addAll(parseIngredientLines(existing?.ingredients.orEmpty())) }
+    }
     var steps by remember(existing?.id) { mutableStateOf(existing?.steps.orEmpty()) }
     var notes by remember(existing?.id) { mutableStateOf(existing?.notes.orEmpty()) }
     var photos by remember(existing?.id) { mutableStateOf(existing?.photos.orEmpty()) }
@@ -45,7 +47,8 @@ fun RecipeEditScreen(existing: Recipe?, people: List<Person>, back: () -> Unit, 
             }
         }
         TextBox(story, { story = it }, "История блюда", 3)
-        TextBox(ingredients, { ingredients = it }, "Ингредиенты: каждый с новой строки", 4)
+        Section("Ингредиенты")
+        RecipeIngredientEditor(ingredientLines)
         TextBox(steps, { steps = it }, "Шаги приготовления: каждый с новой строки", 4)
         TextBox(notes, { notes = it }, "Заметки: можно менять позднее", 2)
         Section("Фотографии блюда")
@@ -63,7 +66,7 @@ fun RecipeEditScreen(existing: Recipe?, people: List<Person>, back: () -> Unit, 
         if (audioPath != null) Text("Аудиозаметка сохранена", style = MaterialTheme.typography.bodySmall)
         Action("Сохранить рецепт", { if (recording) { audioPath = recorder.stop(); recording = false }
             save((existing ?: Recipe(title = title)).copy(title = title.trim(), personId = personId,
-                story = story, ingredients = ingredients, steps = steps, notes = notes,
+                story = story, ingredients = formatIngredientLines(ingredientLines), steps = steps, notes = notes,
                 photos = photos, audioPath = audioPath)) }, title.isNotBlank())
         Spacer(Modifier.height(24.dp))
     }
