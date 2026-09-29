@@ -38,10 +38,10 @@ adb pull /sdcard/vkus-home.png app/build/outputs/vkus-home.png
 find_and_tap() {
     local text="$1" bounds=""
     for _ in 1 2 3 4 5 6 7 8 9 10; do
-        adb shell uiautomator dump /sdcard/vkus-window.xml >/dev/null
-        adb exec-out cat /sdcard/vkus-window.xml > app/build/outputs/vkus-window.xml
+        adb shell uiautomator dump /sdcard/vkus-window.xml >/dev/null || true
+        adb exec-out cat /sdcard/vkus-window.xml > app/build/outputs/vkus-window.xml || true
         bounds=$(grep -o "text=\"$text\"[^>]*" app/build/outputs/vkus-window.xml | \
-            grep -o 'bounds="\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]"' | head -1)
+            grep -o 'bounds="\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]"' | head -1 || true)
         if [ -n "$bounds" ]; then
             local nums x1 y1 x2 y2
             nums=$(echo "$bounds" | sed -e 's/\]\[/,/g' -e 's/[^0-9,]//g')
@@ -72,7 +72,7 @@ for _ in 1 2 3 4 5 6 7 8; do
     adb shell uiautomator dump /sdcard/vkus-window.xml >/dev/null
     adb exec-out cat /sdcard/vkus-window.xml > app/build/outputs/vkus-window.xml
     rect=$(grep -o 'checkable="true"[^>]*bounds="\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]"' \
-        app/build/outputs/vkus-window.xml | head -1 | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]')
+        app/build/outputs/vkus-window.xml | head -1 | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]' || true)
     if [ -n "$rect" ]; then
         # bounds="[x1,y1][x2,y2]" -> strip brackets, then split into 4 numbers
         x1=$(echo "$rect" | sed -e 's/\]\[/,/g' -e 's/[^0-9,]//g' | cut -d, -f1)
