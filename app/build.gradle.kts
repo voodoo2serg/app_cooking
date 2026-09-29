@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -12,16 +14,33 @@ android {
         applicationId = "ru.vkusdetstva"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 4
+        versionName = "0.4.0"
     }
-    buildTypes { release { isMinifyEnabled = false } }
+    // Один общий ключ подписи для debug- и release-сборок: тогда APK, собранный
+    // локально и в CI, ставится поверх установленного приложения как обновление.
+    val signingProps = Properties().apply {
+        val f = rootProject.file("keystore/vkus-signing.properties")
+        if (f.exists()) f.inputStream().use { load(it) }
+    }
+    signingConfigs {
+        create("app") {
+            storeFile = rootProject.file(signingProps.getProperty("storeFile", "keystore/vkus.jks"))
+            storePassword = signingProps.getProperty("storePassword", "")
+            keyAlias = signingProps.getProperty("keyAlias", "")
+            keyPassword = signingProps.getProperty("keyPassword", "")
+        }
+    }
+    buildTypes {
+        debug { signingConfig = signingConfigs.getByName("app") }
+        release { isMinifyEnabled = false; signingConfig = signingConfigs.getByName("app") }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
 }
 
 dependencies {

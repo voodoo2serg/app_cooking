@@ -11,10 +11,21 @@ import ru.vkusdetstva.data.Recipe
 @Composable
 fun AuthorScreen(profile: AuthorProfile, recipes: List<Recipe>, back: () -> Unit, edit: () -> Unit) {
     Page(if (profile.name.isBlank()) "Профиль автора" else profile.name, back) {
+        Row(Modifier.fillMaxWidth().padding(vertical = 6.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            AuthorAvatar(profile.photos, profile.name, 88.dp)
+            Spacer(Modifier.width(14.dp))
+            Column {
+                Text(if (profile.tagline.isNotBlank()) profile.tagline else "Автор семейной книги",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.secondary)
+                Text("Круглая аватарка видна в шапке приложения",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Spacer(Modifier.height(6.dp))
         PhotoCarousel(profile.photos, "Фотография автора")
-        if (profile.tagline.isNotBlank()) Text(profile.tagline,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.secondary)
         if (profile.bio.isNotBlank()) {
             Section("Кто такой автор")
             Text(profile.bio)
@@ -39,6 +50,14 @@ fun AuthorEditScreen(existing: AuthorProfile?, back: () -> Unit, save: (AuthorPr
         Text("Автор — тот, кто ведёт семейную книгу. Рецепты, которые не подписаны чьим-то именем, выходят от лица автора.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+            AuthorAvatar(photos, name, 72.dp)
+            Spacer(Modifier.width(12.dp))
+            Text("Первое фото становится круглой аватаркой — в шапке приложения, в профиле и в настройках.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         PhotoEditor(photos, { photos = it }, "Фотография автора · можно несколько")
         TextBox(name, { name = it }, "Имя или подпись: кто ведёт книгу")
         TextBox(tagline, { tagline = it }, "Кем приходитесь: внук, дочка, хранитель рецептов…")
