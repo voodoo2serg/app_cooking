@@ -37,11 +37,24 @@ sleep 2
 assert_screen 'Профиль автора'
 adb shell screencap -p /sdcard/vkus-settings.png
 adb pull /sdcard/vkus-settings.png app/build/outputs/vkus-settings.png
-adb shell input swipe 540 1700 540 700 400
-sleep 1
-assert_screen 'Тёмная тема'
-# The switch sits below the fold: locate the only checkable node on the
-# settings screen and tap its center instead of hard-coded coordinates.
+# Find the theme switch without assuming where it sits: feature blocks can
+# move settings up or down between releases.
+found_theme=0
+for attempt in 1 2 3 4; do
+    adb shell uiautomator dump /sdcard/vkus-window.xml >/dev/null
+    adb exec-out cat /sdcard/vkus-window.xml > app/build/outputs/vkus-window.xml
+    if grep -Fq 'Тёмная тема' app/build/outputs/vkus-window.xml; then
+        found_theme=1
+        break
+    fi
+    adb shell input swipe 540 1700 540 900 350
+    sleep 1
+done
+if [ "$found_theme" -ne 1 ]; then
+    echo 'Expected screen text missing after scrolling: Тёмная тема' >&2
+    exit 1
+fi
+# Locate the visible checkable switch and tap its center.
 rect=$(grep -o 'checkable="true"[^>]*bounds="\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]"' \
     app/build/outputs/vkus-window.xml | head -1 | grep -o '\[[0-9]*,[0-9]*\]\[[0-9]*,[0-9]*\]')
 if [ -z "$rect" ]; then
