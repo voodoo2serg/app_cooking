@@ -22,7 +22,8 @@ class FamilyFeaturesTest {
             Recipe(title = "Печенье", ingredients = "Сахар — 700 г\nЯйца — 8 шт")
         ))
         val sugar = items.single { it.name == "Сахар" }
+        assertTrue(sugar.amount.startsWith("2 × пакет 1 кг"))
         assertTrue(sugar.amount.contains("700 г + 700 г"))
-        assertTrue(items.single { it.name == "Яйца" }.amount.contains("6 шт + 8 шт"))
+        assertTrue(items.single { it.name == "Яйца" }.amount.startsWith("2 × десяток"))
     }
 }
